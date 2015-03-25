@@ -101,12 +101,12 @@ class NetAppGUI(Frame):
         port = Entry(top)
         port.grid(row=0, column=1)
         port.focus_set()
-        go = Button(top, text="Launch", command=lambda: self.server_init(port.get(), top))
+        go = Button(top, text="Launch", 
+                    command=lambda: self.server_init(port.get(), top))
         go.grid(row=1, column=1)
 
     def server_init(self, port, window):
         serv = server.Server(int(port))
-
         serv.start()
         window.destroy()
         

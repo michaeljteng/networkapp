@@ -21,8 +21,8 @@ class NetGraph(Frame):
         self.edges = [('a','b',0.4), ('b','e',0.4), ('e','d',0.7), ('a','c',0.2), ('c','d',0.4), ('a','d',70)]
         self.G = nx.Graph()
         # set up the matplotlib figure
-        self.exists = 0
         self.path = []
+        self.found = None 
         self.graphFrame = Frame(self)
         self.initNetGraph()
         
@@ -34,12 +34,12 @@ class NetGraph(Frame):
         buttonsFrame = Frame(self)
         mstButton = Button(buttonsFrame, text="MST", command=lambda: self.drawGraph(1))
         spButton = Button(buttonsFrame, text="Shortest Path", command=lambda: self.pathPrompt(self.parent))
-        dfsButton = Button(buttonsFrame, text="Find User", command=lambda: self.drawGraph(3))
+        findButton = Button(buttonsFrame, text="Find User", command=lambda: self.findUser(self.parent))
         ogButton = Button(buttonsFrame, text="Original Graph", command=lambda: self.drawGraph(0))
         
         mstButton.grid(row=0, column=1)
         spButton.grid(row=0, column=2)
-        dfsButton.grid(row=0, column=3)
+        findButton.grid(row=0, column=3)
         ogButton.grid(row=0, column=4)
         buttonsFrame.pack()
 
@@ -59,16 +59,12 @@ class NetGraph(Frame):
 
         a = f.add_subplot(111)       
 
-        if flag == 1:
-            mstEdges = self.computeMST()
-        
         pos=nx.spring_layout(self.G)
         
-        if self.exists:
-            self.graphFrame.destroy()
-            self.graphFrame = Frame(self)
-            self.graphFrame.pack()
-            
+        self.graphFrame.destroy()
+        self.graphFrame = Frame(self)
+        self.graphFrame.pack()
+        
         canvas = FigureCanvasTkAgg(f, self.graphFrame)
         
         # nodes
@@ -76,10 +72,13 @@ class NetGraph(Frame):
 
         # edges
         if flag == 1:
+            mstEdges = self.computeMST()
             nx.draw_networkx_edges(self.G,pos, edgelist=mstEdges, edge_color='b', style='dashed', width=5,ax=a)
-        if flag == 2:
+        elif flag == 2:
             nx.draw_networkx_edges(self.G, pos, edgelist=self.path, edge_color='g', style='dashed', width=5, ax=a)
-        
+        elif flag == 3:
+            nx.draw_networkx_nodes(self.G, pos, nodelist=self.found, node_color='y', node_size=400, ax=a)
+
         nx.draw_networkx_edges(self.G,pos, width=1,ax=a)
 
         # labels
@@ -91,9 +90,6 @@ class NetGraph(Frame):
         toolbar = NavigationToolbar2TkAgg(canvas, self.graphFrame)
         toolbar.update()
         canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=True)
-
-
-        self.exists = 1
 
     def computeMST(self):
         kruskalEdges = sorted(self.G.edges(data=True), key=lambda (u,v,d): d['weight'])
@@ -152,15 +148,12 @@ class NetGraph(Frame):
                     minheap.append((maxint, 0, node))
                     prev[node] = 'undefined'
             heapify(minheap)
-            print minheap
             
             while minheap:
                 (distance, visited, node) = heappop(minheap)
-                print (distance, node)
                 dist[node] = (distance, 1, node)
                 for (neighbor, distance_to) in self.nodes[node]:
                     if dist[neighbor][1] == 0:
-                        print distance_to
                         alt = distance + distance_to
                         if alt < dist[neighbor][0]:
                             minheap.remove(dist[neighbor])
@@ -183,9 +176,26 @@ class NetGraph(Frame):
             window.destroy()
         window.destroy()
 
-    def decreaseKey(self, heap, item):
-        return 0
-        
+    def themostuseless(self, node, window):
+        if node in self.nodes:
+            self.found = node
+            window.destroy()
+        else:
+            print "not in graph"
+            self.found = None
+            window.destroy()
+
+        self.drawGraph(3)
+
+    def findUser(self, master):
+        top = Toplevel(master)
+        top.title("user?")
+        top.grab_set()
+        Label(top, text="wtf").grid(row=0)
+        port = Entry(top)
+        port.grid(row=0, column=1)
+        go = Button(top, text="launch", command=lambda: self.themostuseless(port.get(), top))
+        go.grid(row=2, column=1)
 
     def pathPrompt(self, master):
         top = Toplevel(master)
