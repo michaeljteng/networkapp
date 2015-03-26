@@ -11,6 +11,8 @@ class NetAppGUI(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent) #background='white'#
         self.parent = parent
+        self.chatText = None
+
         self.initUI()
 
     
@@ -36,7 +38,7 @@ class NetAppGUI(Frame):
         networkMenu.add_command(label='Connect to Server', 
                                 command=lambda: self.custom_server(self.parent))
         networkMenu.add_command(label='Discover Instances', 
-                                command=lambda: self.uclient_init(self.parent))
+                                command=lambda: self.uclient_init())
         menubar.add_cascade(label="Network", menu=networkMenu)
 
         # graph menu
@@ -51,26 +53,29 @@ class NetAppGUI(Frame):
         chatFrame = Frame(self, relief=RAISED, borderwidth=1)
         chatTopFrame = Frame(chatFrame) 
         # a text widget for the chat
-        chatText = Text(chatTopFrame)
+        self.chatText = Text(chatTopFrame)
         # a scrollbar for the chat
         chatScroll = Scrollbar(chatTopFrame)
         # a place to input text and or commands
         
         chatTopFrame.pack(side=TOP, expand=1, fill=BOTH)
         inputText = Entry(chatFrame, borderwidth=1)
-        inputText.bind("<Return>", self.nothing)
+        inputText.bind("<Return>", lambda event: self.clearField(inputText.get(), inputText.delete(0, END)))
+        inputText.delete(0, END)
 
-        chatText.pack(side=LEFT, fill=Y)
+        self.chatText.pack(side=LEFT, fill=Y)
         chatScroll.pack(side=RIGHT, fill=Y)
         inputText.pack(side=BOTTOM, fill=BOTH)
 
-        chatScroll.config(command=chatText.yview)
-        chatText.insert(END, "fuck cs2")
-        chatText.config(yscrollcommand=chatScroll.set, state=DISABLED)
+        chatScroll.config(command=self.chatText.yview)
+        self.chatText.insert(END, "fuck cs2")
+        self.chatText.config(yscrollcommand=chatScroll.set, state=DISABLED)
         chatFrame.pack(side=LEFT, fill=BOTH)
 
         networkGraph = graph.NetGraph(self)
-       
+            
+    def nothing(self):
+        print "nothing"
     # the udp broadcast for instance discovery
     def broadcast_server(self, master):
         top = Toplevel(master)
@@ -80,20 +85,20 @@ class NetAppGUI(Frame):
         port = Entry(top)
         port.grid(row=0, column=1)
         port.focus_set()
-        go = Button(top, text="Launch", command=lambda: self.userver_init(port.get(), top))
+        go = Button(top, text="Launch", command=lambda: self.userver_init(top))
         go.grid(row=1, column=1)
 
-    def userver_init(self, port, window):
-        serv = server.udpServer(int(port))
+    def userver_init(self, window):
+        serv = server.udpServer()
         serv.start()
         window.destroy()
 
-    def uclient_init(self, port):
-        serv = client.udpClient(int(port))
+    def uclient_init(self):
+        serv = client.udpClient()
         serv.start()
     
     def custom_server(self, master):
-        """Launches server options window for getting port."""
+        #Launches server options window for getting port
         top = Toplevel(master)
         top.title("custom server")
         top.grab_set()
@@ -110,10 +115,22 @@ class NetAppGUI(Frame):
         serv.start()
         window.destroy()
         
-    def nothing(self, event):
-        app = client.Client(1,2)
-        app.printVariables()
+    def clearField(self, text, clearField):
 
+        # probably a better way to do this, but i'm being lazy
+        # thank god python is functional
+        # yes, this is really all that is happening does....
+        clearField
+        self.writeOutput(text)
+
+    def writeOutput(self, text):
+        self.chatText.config(state=NORMAL)
+        self.chatText.insert(END, '\n')
+        self.chatText.insert(END, "bitch says?...")
+        self.chatText.insert(END, text)
+        self.chatText.yview(END)
+        self.chatText.config(state=DISABLED)
+        
 #-----------------------------------------------------------------------------------#
 def main():
     root = Tk()

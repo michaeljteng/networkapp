@@ -7,20 +7,19 @@ from time import sleep
 
 class udpServer(threading.Thread):
 
-    def __init__(self, port):
+    def __init__(self):
         threading.Thread.__init__(self)
-        self.port = port
 
     def run(self):
         serv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s_addr = ('', 50000)
+        s_addr = ('', 0)
 
         serv.bind(s_addr)
         serv.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         my_ip = socket.gethostbyname(socket.gethostname())
         while 1:
             data = "legbat"+my_ip
-            serv.sendto(data, ('<broadcast>', self.port))
+            serv.sendto(data, ('<broadcast>', 50000))
             print "sent service announcement!" 
             sleep(5)
 
@@ -45,7 +44,6 @@ class Server(threading.Thread):
 				    input_socks.remove(sock)
 
     def run(self):
-        
         #create a TCP/IP socket
         try:
 	        serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

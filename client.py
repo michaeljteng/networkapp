@@ -11,7 +11,7 @@ class Client(threading.Thread):
         self.port = port
     
     def run(self):
-        server_address = ('localhost', 10000)
+        server_address = ('', 50000)
 
         sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,15 +31,30 @@ class Client(threading.Thread):
         sock2.close()
 
 class udpClient(threading.Thread):
-    def __init__(self, port):
+    def __init__(self):
         threading.Thread.__init__(self)
-        self.port = port
     def run(self):
         serv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #create UDP socket
         s_addr = ('', 50000)
+        
+        serv.settimeout(6)
         serv.bind(s_addr)
-        while 1:
-            data, addr = serv.recvfrom(1024) #wait for a packet
-            if data.startswith('legbat'):
-                print "got service announcement from", data[len('legbat'):]
+        aha = ''
+        try:
+            while 1:
+                try:
+                    
+                    data, addr = serv.recvfrom(1024) #wait for a packet
+                    if data.startswith('legbat'):
+                        print "got service announcement from", data[len('legbat'):]
+                        aha = data[len('legbat'):]
+                        serv.close()
+                except socket.timeout:
+                    print "your done"
+                    serv.close()
+                    print "u are truly done"
+        except:
+            print "this didnt do shit"
+            print "wtf"
+
 
