@@ -4,7 +4,15 @@ import threading
 import client
 import server
 import graph
-from Tkinter import *
+
+if not sys.hexversion > 0x03000000:
+    from Tkinter import *
+else:
+    from tkinter import *
+
+from time import sleep
+
+import subprocess
 
 class NetAppGUI(Frame):
 
@@ -12,7 +20,10 @@ class NetAppGUI(Frame):
         Frame.__init__(self, parent) #background='white'#
         self.parent = parent
         self.chatText = None
-
+        self.findInstance = None
+        self.broadcast = None
+        self.server = None
+        self.client = None
         self.initUI()
 
     
@@ -34,9 +45,9 @@ class NetAppGUI(Frame):
         networkMenu = Menu(menubar)
         # adding commands to the file menu
         networkMenu.add_command(label='Host a Server', 
-                                command=lambda: self.broadcast_server(self.parent))
+                                command=lambda: self.server_init())
         networkMenu.add_command(label='Connect to Server', 
-                                command=lambda: self.custom_server(self.parent))
+                                command=lambda: self.connect())
         networkMenu.add_command(label='Discover Instances', 
                                 command=lambda: self.uclient_init())
         menubar.add_cascade(label="Network", menu=networkMenu)
@@ -73,9 +84,27 @@ class NetAppGUI(Frame):
         chatFrame.pack(side=LEFT, fill=BOTH)
 
         networkGraph = graph.NetGraph(self)
-            
+        self.after(1000, lambda: self.uclient_init())
+        self.after(7500, lambda: self.no())
+#        self.ping('192.168.1.8')
+              #c = client.Client('',10000)
+        #c.start()
+
     def nothing(self):
         print "nothing"
+
+    def server_init(self):
+        serv = server.Server(self)
+        serv.start()
+        self.server = serv
+
+    def connect(self):
+        if self.client is None:
+            serv = client.Client(self)
+            serv.start()
+            self.client = serv 
+        else:
+            self.writeOutput("u dumbfuk")
     # the udp broadcast for instance discovery
     def broadcast_server(self, master):
         top = Toplevel(master)
@@ -94,9 +123,21 @@ class NetAppGUI(Frame):
         window.destroy()
 
     def uclient_init(self):
-        serv = client.udpClient()
-        serv.start()
+        self.findInstance = client.udpClient()
+        self.findInstance.start()
+        self.writeOutput("looking for existing instances.....please wait")
     
+    def no(self):
+        (addr, success) = self.findInstance.search
+        if success:
+            self.writeOutput("found existing instance at: " + addr)
+        else:
+            self.writeOutput("no existing instance found - starting broadcast option")
+        self.findInstance = None
+        self.broadcast = server.udpServer()
+        self.broadcast.start()
+
+       
     def custom_server(self, master):
         #Launches server options window for getting port
         top = Toplevel(master)
@@ -110,18 +151,18 @@ class NetAppGUI(Frame):
                     command=lambda: self.server_init(port.get(), top))
         go.grid(row=1, column=1)
 
-    def server_init(self, port, window):
-        serv = server.Server(int(port))
-        serv.start()
-        window.destroy()
-        
     def clearField(self, text, clearField):
 
         # probably a better way to do this, but i'm being lazy
         # thank god python is functional
         # yes, this is really all that is happening does....
         clearField
-        self.writeOutput(text)
+        self.writeOutput("....." + text)
+        if self.client:
+            self.client.sendMsg(text)
+        if self.server:
+            self.server.send_through_server(text)
+
 
     def writeOutput(self, text):
         self.chatText.config(state=NORMAL)
@@ -130,7 +171,18 @@ class NetAppGUI(Frame):
         self.chatText.insert(END, text)
         self.chatText.yview(END)
         self.chatText.config(state=DISABLED)
-        
+
+    # a convoluted way of getting the ping
+    def ping(self, addr):
+        result = subprocess.Popen(["ping", "-c", "1", addr], 
+                                    stdout=subprocess.PIPE, 
+                                    stderr=subprocess.PIPE)
+        out, error = result.communicate()
+        out1 = out.split("time=")
+        if out1[1]:
+            ping = float(out1[1].split(" ms\n")[0])
+            self.writeOutput(str(ping))
+            
 #-----------------------------------------------------------------------------------#
 def main():
     root = Tk()
@@ -140,4 +192,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+   
