@@ -63,7 +63,7 @@ class Client(threading.Thread):
         self.socks = [ socket.socket(socket.AF_INET, socket.SOCK_STREAM)]
 
         # Connect the socket to the port where the server is listening
-        self.parent.writeOutput('connecting to %s port %s' % server_address)
+        self.parent.writeOutput('Connecting to %s port %s' % server_address)
         for s in self.socks:
             s.connect(server_address)
         
@@ -72,9 +72,9 @@ class Client(threading.Thread):
             for s in r:
                 try:
                     data = s.recv(1024)
-                    self.parent.writeOutput(data)
+                    self.parent.writeOutput("<"+str(s.getpeername()[0])+"> : "+data)
                 except:
-                    print "ASDFASDFASDFASDGAGWEG"
+                    print "u fucking scrub"
                     
     def sendMsg(self, message):
         for s in self.socks:

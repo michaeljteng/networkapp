@@ -165,11 +165,12 @@ class NetAppGUI(Frame):
         # thank god python is functional
         # yes, this is really all that is happening does....
         clearField
-        self.writeOutput("....." + text)
+        self.writeOutput("<you> : " + text)
         if self.client:
             self.client.sendMsg(text)
-        #if self.server:
-         #   self.server.send_through_server(text)
+        if self.server:
+            print "why so serious"
+            self.server.send_through_server(text)
 
 
     def writeOutput(self, text):

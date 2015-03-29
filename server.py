@@ -86,7 +86,7 @@ class Server(threading.Thread):
                     print data
                     if data:
                         # A readable client socket has data
-                        self.parent.writeOutput('received "%s" from %s' % (data, s.getpeername()))
+                        self.parent.writeOutput("<"+str(s.getpeername()[0])+"> : "+data)
                         self.message_queues[s].put(data)
                         # Add output channel for response
                         if s not in outputs:
@@ -111,11 +111,13 @@ class Server(threading.Thread):
                     next_msg = self.message_queues[s].get_nowait()
                 except Queue.Empty:
                     # No messages waiting so stop checking for writability.
-                    self.parent.writeOutput('output queue for' + str(s.getpeername()) + 'is empty')
+                    #self.parent.writeOutput('output queue for' + str(s.getpeername()) + 'is empty')
                     self.outputs.remove(s)
                 else:
-                    self.parent.writeOutput('sending "%s" to %s' % (next_msg, s.getpeername()))
-                    s.send(next_msg)
+                    #self.parent.writeOutput('sending "%s" to %s' % (next_msg, s.getpeername()))
+                    # REMBER THIS SETUP IT IS FOR PROPAGATION!!!!!
+                    #s.send(next_msg)
+                    print "holding"
 
             # Handle "exceptional conditions"
             for s in exceptional:
@@ -131,6 +133,7 @@ class Server(threading.Thread):
              
     def send_through_server(self, message):
         for s in self.message_queues:
+            print "dont work"
             s.send(message)
             #self.message_queues[s].put(message)
                 # Add output channel for response
