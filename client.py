@@ -36,14 +36,44 @@ class udpClient(threading.Thread):
                         success = 1
                         serv.close()
                 except socket.timeout:
-                    print "your done"
                     serv.close()
-                    print "u are truly done"
         except:
-            print "this didnt do shit"
-            print "wtf"
-            
+            print "done searching"
+
+        # record results
         self.search = (ap[0], ap[1], success)
+
+class dClient(threading.Thread):
+    def __init__(self, parent, addr, port):
+        threading.Thread.__init__(self)
+        self.parent = parent
+        self.addr = addr 
+        self.port = port
+        self.sock = None
+
+    def run(self):
+        server_addr = (self.addr, self.port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.parent.writeOutput('Retrieving graph structure from %s, %s' % server_addr)
+      
+        self.sock.connect(server_addr)
+        self.parent.writeOutput('using addr:'+str(self.sock.getsockname()))
+        try:
+            data = self.sock.recv(2048)
+            print data
+            if data.startswith('legbat'):
+                jar = data[len('legbat'):]
+                pickles = jar.split('legbat')
+                p1 = pickle.loads(pickles[0])
+                p2 = pickle.loads(pickles[1])
+                print p1, p2
+                self.parent.network = graph.NetGraph(self.parent, p1, p2)
+            else:
+                print "its dover"
+        except:
+            print "u scrub"
+    
+
 
 #----------------------------------------------------------------#
 # This is the main client class:                                 #
@@ -51,23 +81,28 @@ class udpClient(threading.Thread):
 # order to achieve asynchronous I/O                              #
 #----------------------------------------------------------------#
 class Client(threading.Thread):
-    def __init__(self, parent, addr, port):
+    def __init__(self, parent, addr_lst, port_lst):
         threading.Thread.__init__(self)
         self.parent = parent # this is the tkinter widget
-        self.addr = addr
-        self.port = port
+        self.addrs = addr_lst
+        self.ports = port_lst
         self.socks = []
     
     def run(self):
-        server_address = (self.addr, self.port)
+        print len(self.addrs), "LENGTH OF ADDR LST:"
+        for i in xrange(len(self.addrs)):
+            server_address = (self.addrs[i], self.ports[i])
+            # Create a TCP/IP socket
+            
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socks.append(s)
 
-        # Create a TCP/IP socket
-        self.socks.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
-
-        # Connect the socket to the port where the server is listening
-        self.parent.writeOutput('Connecting to %s port %s' % server_address)
-        for s in self.socks:
+            # Connect the socket to the port where the server is listening
+            self.parent.writeOutput('Connecting to %s port %s' % server_address)
+            
             s.connect(server_address)
+            #self.parent.network.new_connection(str(s.getsockname()), (str(s.getsockname()),str(server_address), 0.5) )
+
         while 1:
             r,w,x = select.select(self.socks, self.socks, [])
             for s in r:
@@ -80,19 +115,13 @@ class Client(threading.Thread):
                         p1 = pickle.loads(pickles[0])
                         p2 = pickle.loads(pickles[1])
                         print p1, p2
-                        self.parent.network = graph.NetGraph(self.parent, p1, p2) 
+                        self.parent.network = graph.NetGraph(self.parent, p1, p2)
+
                     else:
                         self.parent.writeOutput("<"+str(s.getpeername())+"> : "+data)
                 except:
                     print "u fucking scrub"
-                    
-    def requestGraph(self):
-        try:
-            requester = self.socks[0]
-            requester.send('retrievelegbat')
-        except:
-            print "u dum"
-            
+        
     def sendMsg(self, message):
         for s in self.socks:
             s.send(message)

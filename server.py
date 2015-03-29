@@ -50,7 +50,7 @@ class Server(threading.Thread):
         s_addr = (socket.gethostbyname(socket.gethostname()), 0)
         server.bind(s_addr)
         print self.parent.port
-        self.parent.node = str(server.getsockname())
+        self.parent.node = str(server.getsockname()[0])+'::'+str(server.getsockname()[1])
         self.parent.port = server.getsockname()[1]
         print self.parent.port
         # listens with a backlog of 5 connections

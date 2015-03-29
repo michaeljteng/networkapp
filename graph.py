@@ -70,9 +70,15 @@ class NetGraph(Frame):
             self.nodes[y].append((x,w))
         for node in self.nodes:
             self.G.add_node(node,visited=0, distanceto=maxint, adjlist=self.nodes[node])
-
+    
+    def new_connection(self, node, edge):
+        self.realNodes[node] = []
+        self.realEdges.append(edge)
+        self.construct(2)
+        self.drawGraph(0)
+        
     def drawGraph(self, flag):
-        f = Figure(figsize=(6,6), dpi=100)
+        f = Figure(figsize=(5.5,6), dpi=100)
 
         a = f.add_subplot(111)       
 

@@ -28,6 +28,7 @@ class NetAppGUI(Frame):
         self.node = None
         self.client = None
         self.network = None
+        self.dc = None
         self.initUI()
 
     
@@ -78,7 +79,7 @@ class NetAppGUI(Frame):
         self.after(1000, lambda: self.uclient_init())
         self.after(7500, lambda: self.isLocalInstance(self.port))
         self.after(8000, lambda: self.retrieveGraph())
-
+        self.after(8500, lambda: self.app_connect())
 #        self.ping('192.168.1.8')
               #c = client.Client('',10000)
         #c.start()
@@ -95,10 +96,14 @@ class NetAppGUI(Frame):
     # this does not work inside the connect function, perhaps connecting takes
     # too long.
     def retrieveGraph(self):
-        if self.client:
-            self.client.sendMsg('retrievelegbat')
+        if self.dc:
+            self.dc.sock.send('retrievelegbat')
         else:
             self.network = graph.NetGraph(self,{self.node: []}, [(self.node, self.node, 0)] )
+        self.writeOutput("Thanks for your patience - Your ChatApp is read to use!")
+        self.writeOutput("...Remember to disconnect properly!")
+
+
     def uclient_init(self):
         self.findInstance = client.udpClient()
         self.findInstance.start()
@@ -109,8 +114,7 @@ class NetAppGUI(Frame):
         if success:
             self.writeOutput("Found existing instance at: " + addr +':'+cport)
             # import the existing graph structure
-            self.connect(addr, int(cport))
-
+            self.dconnect(addr, int(cport))
         else:
             self.writeOutput("No existing instance found!") 
             self.writeOutput("Starting broadcast for this instance...")
@@ -118,8 +122,6 @@ class NetAppGUI(Frame):
             print "STARTING" +str(port)
             self.broadcast = server.udpServer(port)
             self.broadcast.start()
-        self.writeOutput("Thanks for your patience - Your ChatApp is read to use!")
-        self.writeOutput("...Remember to disconnect properly!")
 
     def nothing(self):
         print "nothing"
@@ -131,14 +133,37 @@ class NetAppGUI(Frame):
         if window:
             window.destroy()
 
-    def connect(self, addr, port):
-        self.writeOutput("Connecting to the discovery!")
-        if self.client is None:
-            serv = client.Client(self, addr, port)
+    def dconnect(self, addr, port):
+        if self.dc is None:
+            serv = client.dClient(self, addr, port)
+            serv.start()
+            self.dc = serv
+        else:
+            self.writeOutput("GG")
+
+    # for actual connections    
+    def app_connect(self):
+             
+        addr_lst = []
+        port_lst = []
+
+        for node in self.network.nodes:
+            print node+"HOW MANY NODES ARE THER???"
+            addr_lst.append(node.split('::')[0])
+            port_lst.append(int(node.split('::')[1]))
+        ########################
+        # save a spot for transmit new graph node message
+        #
+        #############################
+        print "DID THIS FUCKING WORK"
+        if self.dc:
+            print "YES IT DID!"
+            serv = client.Client(self, addr_lst, port_lst)
             serv.start()
             self.client = serv
         else:
-            self.writeOutput("u dumbfuk")
+            print "u dumbfuk"
+
     # the udp broadcast for instance discovery
     def serverPrompt(self, master):
         top = Toplevel(master)
