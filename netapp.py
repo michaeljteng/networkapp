@@ -23,6 +23,7 @@ class NetAppGUI(Frame):
         self.findInstance = None
         self.broadcast = None
         self.server = None
+        self.port = None
         self.client = None
         self.initUI()
 
@@ -31,34 +32,17 @@ class NetAppGUI(Frame):
         self.parent.title("Chat Client")
         self.pack(fill=BOTH, expand=1)
 
-        # set up a menubar for the commands: File, Network, Graph
-        menubar = Menu(self)
-        self.parent.config(menu=menubar)
-
-        # file menu
-        fileMenu = Menu(menubar)
-        # adding commands to the file menu
-        fileMenu.add_command(label='Exit', command=lambda: self.nothing())
-        menubar.add_cascade(label="File", menu=fileMenu)
-
-        # network menu
-        networkMenu = Menu(menubar)
-        # adding commands to the file menu
-        networkMenu.add_command(label='Host a Server', 
-                                command=lambda: self.server_init())
-        networkMenu.add_command(label='Connect to Server', 
-                                command=lambda: self.connect())
-        networkMenu.add_command(label='Discover Instances', 
-                                command=lambda: self.uclient_init())
-        menubar.add_cascade(label="Network", menu=networkMenu)
-
-        # graph menu
-        graphMenu = Menu(menubar)
-        # adding commands to the file menu
-        graphMenu.add_command(label='Run MST', command=self.nothing)
-        graphMenu.add_command(label='Name Search', command=self.nothing)
-        graphMenu.add_command(label='Pathfinder', command=self.nothing)
-        menubar.add_cascade(label="File", menu=graphMenu)
+        # buttons for remote client connections
+        buttonsFrame = Frame(self)
+        exitButton = Button(buttonsFrame, text="Disconnect & Exit", command=lambda: self.nothing())
+        remoteHostButton = Button(buttonsFrame, text="Connect Remotely", command=lambda: self.nothing())
+        serverb = Button(buttonsFrame, text="server", command=lambda: self.serverPrompt(self.parent))
+        cb = Button(buttonsFrame, text="client", command=lambda:self.connect())
+        exitButton.grid(row=0, column=1)
+        remoteHostButton.grid(row=0, column=2)
+        serverb.grid(row=0, column=3)
+        cb.grid(row=0, column=4)
+        buttonsFrame.pack()
 
         # add a new frames to seperate the visualization and chat
         chatFrame = Frame(self, relief=RAISED, borderwidth=1)
@@ -79,63 +63,87 @@ class NetAppGUI(Frame):
         inputText.pack(side=BOTTOM, fill=BOTH)
 
         chatScroll.config(command=self.chatText.yview)
-        self.chatText.insert(END, "fuck cs2")
+        self.chatText.insert(END, "Welcome to the Chat Client!")
         self.chatText.config(yscrollcommand=chatScroll.set, state=DISABLED)
         chatFrame.pack(side=LEFT, fill=BOTH)
-
         networkGraph = graph.NetGraph(self)
+
+        # The fun starts here
+        master_serv = server.Server(self)
+        master_serv.start()
+        self.server = master_serv 
+        self.after(500, lambda: self.declarePortNum())
         self.after(1000, lambda: self.uclient_init())
-        self.after(7500, lambda: self.no())
+        self.after(7500, lambda: self.isLocalInstance(self.port))
+
 #        self.ping('192.168.1.8')
               #c = client.Client('',10000)
         #c.start()
 
-    def nothing(self):
-        print "nothing"
-
-    def server_init(self):
-        serv = server.Server(self)
-        serv.start()
-        self.server = serv
-
-    def connect(self):
-        if self.client is None:
-            serv = client.Client(self)
-            serv.start()
-            self.client = serv 
-        else:
-            self.writeOutput("u dumbfuk")
-    # the udp broadcast for instance discovery
-    def broadcast_server(self, master):
-        top = Toplevel(master)
-        top.title("host a broadcast server")
-        top.grab_set()
-        Label(top, text="Port:").grid(row=0)
-        port = Entry(top)
-        port.grid(row=0, column=1)
-        port.focus_set()
-        go = Button(top, text="Launch", command=lambda: self.userver_init(top))
-        go.grid(row=1, column=1)
+    def declarePortNum(self):
+        self.writeOutput("ChatApp is waiting on port: " + str(self.port)) 
 
     def userver_init(self, window):
         serv = server.udpServer()
         serv.start()
+        print self.server.port
         window.destroy()
+
 
     def uclient_init(self):
         self.findInstance = client.udpClient()
         self.findInstance.start()
-        self.writeOutput("looking for existing instances.....please wait")
+        self.writeOutput("Looking for existing instances.....please wait")
     
-    def no(self):
-        (addr, success) = self.findInstance.search
+    def isLocalInstance(self, port):
+        (addr, cport, success) = self.findInstance.search
         if success:
-            self.writeOutput("found existing instance at: " + addr)
+            self.writeOutput("Found existing instance at: " + addr +':'+cport)
+            self.connect(addr, int(cport))
         else:
-            self.writeOutput("no existing instance found - starting broadcast option")
-        self.findInstance = None
-        self.broadcast = server.udpServer()
-        self.broadcast.start()
+            self.writeOutput("No existing instance found!") 
+            self.writeOutput("Starting broadcast for this instance...")
+            self.findInstance = None
+            print "STARTING" +str(port)
+            self.broadcast = server.udpServer(port)
+            self.broadcast.start()
+        self.writeOutput("Thanks for your patience - Your ChatApp is read to use!") 
+    def nothing(self):
+        print "nothing"
+
+    def server_init(self, addr, port, window):
+        serv = server.Server(self, addr)
+        serv.start()
+        self.server = serv
+        if window:
+            window.destroy()
+
+    def connect(self, addr, port):
+        self.writeOutput("Connecting to the discovery!")
+        if self.client is None:
+            serv = client.Client(self, addr, port)
+            serv.start()
+            self.client = serv 
+        else:
+            self.writeOutput("u dumbfuk")
+
+    # the udp broadcast for instance discovery
+    def serverPrompt(self, master):
+        top = Toplevel(master)
+        top.title("Custom Server")
+        top.grab_set()
+        Label(top, text="Addr:").grid(row=0)
+        port = Entry(top)
+        port.grid(row=0, column=1)
+        port.focus_set()
+        Label(top, text="Port:").grid(row=1)
+        port2 = Entry(top)
+        port2.grid(row=1, column=1)
+        port2.focus_set()
+        go = Button(top, text="Launch", command=lambda: self.server_init(port.get(), port2.get(), top))
+        go.grid(row=2, column=1)
+
+
 
        
     def custom_server(self, master):
@@ -160,14 +168,13 @@ class NetAppGUI(Frame):
         self.writeOutput("....." + text)
         if self.client:
             self.client.sendMsg(text)
-        if self.server:
-            self.server.send_through_server(text)
+        #if self.server:
+         #   self.server.send_through_server(text)
 
 
     def writeOutput(self, text):
         self.chatText.config(state=NORMAL)
         self.chatText.insert(END, '\n')
-        self.chatText.insert(END, "bitch says?...")
         self.chatText.insert(END, text)
         self.chatText.yview(END)
         self.chatText.config(state=DISABLED)

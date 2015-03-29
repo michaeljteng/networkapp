@@ -7,13 +7,14 @@ from time import sleep
 
 class udpServer(threading.Thread):
 
-    def __init__(self):
+    def __init__(self, port):
         threading.Thread.__init__(self)
+        self.port = str(port)
 
     def run(self):
         serv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s_addr = ('', 0)
-
+        print "WTFFFF" + self.port
         serv.bind(s_addr)
         serv.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         try:
@@ -22,15 +23,16 @@ class udpServer(threading.Thread):
             print "wtf"
             my_ip = 'ur fucked'
         while 1:
-            data = "legbat"+my_ip
+            data = "legbat"+my_ip+"::"+self.port
             serv.sendto(data, ('<broadcast>', 50000))
-            print "sent service announcement!" 
+            print "sent service announcement to ", data 
             sleep(5)
 
 class Server(threading.Thread):
     def __init__(self, parent):
         threading.Thread.__init__(self)
         self.parent = parent
+        self.port = 0 #TBD
         self.message_queues = {}
         self.outputs = []
 
@@ -44,19 +46,21 @@ class Server(threading.Thread):
 	        sys.exit()
 
         # the '' thing is to list all possible hosts
-        s_addr = ('localhost', 10000)
+        s_addr = (socket.gethostbyname(socket.gethostname()), 0)
         server.bind(s_addr)
-
+        print self.parent.port
+        self.parent.port = server.getsockname()[1]
+        print self.parent.port
         # listens with a backlog of 5 connections
         server.listen(5)
 
 
         # Sockets from which we expect to read
+        #inputs = [ server ]
         inputs = [ server ]
-
         # Sockets to which we expect to write
         outputs = [ ]
-
+        
         while inputs:
 
             # Wait for at least one of the sockets to be ready for processing
@@ -67,6 +71,7 @@ class Server(threading.Thread):
             for s in readable:
 
                 if s is server:
+                    print "WE GOT THIS FAR"
                     # A "readable" server socket is ready to accept a connection
                     connection, client_address = s.accept()
                     self.parent.writeOutput('new connection from' + str(client_address))
