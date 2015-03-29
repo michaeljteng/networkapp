@@ -4,6 +4,7 @@ import threading
 import client
 import server
 import graph
+import pickle
 
 if not sys.hexversion > 0x03000000:
     from Tkinter import *
@@ -24,7 +25,9 @@ class NetAppGUI(Frame):
         self.broadcast = None
         self.server = None
         self.port = None
+        self.node = None
         self.client = None
+        self.network = None
         self.initUI()
 
     
@@ -66,8 +69,7 @@ class NetAppGUI(Frame):
         self.chatText.insert(END, "Welcome to the Chat Client!")
         self.chatText.config(yscrollcommand=chatScroll.set, state=DISABLED)
         chatFrame.pack(side=LEFT, fill=BOTH)
-        networkGraph = graph.NetGraph(self)
-
+        
         # The fun starts here
         master_serv = server.Server(self)
         master_serv.start()
@@ -75,6 +77,7 @@ class NetAppGUI(Frame):
         self.after(500, lambda: self.declarePortNum())
         self.after(1000, lambda: self.uclient_init())
         self.after(7500, lambda: self.isLocalInstance(self.port))
+        self.after(8000, lambda: self.retrieveGraph())
 
 #        self.ping('192.168.1.8')
               #c = client.Client('',10000)
@@ -89,7 +92,13 @@ class NetAppGUI(Frame):
         print self.server.port
         window.destroy()
 
-
+    # this does not work inside the connect function, perhaps connecting takes
+    # too long.
+    def retrieveGraph(self):
+        if self.client:
+            self.client.sendMsg('retrievelegbat')
+        else:
+            self.network = graph.NetGraph(self,{self.node: []}, [(self.node, self.node, 0)] )
     def uclient_init(self):
         self.findInstance = client.udpClient()
         self.findInstance.start()
@@ -99,7 +108,9 @@ class NetAppGUI(Frame):
         (addr, cport, success) = self.findInstance.search
         if success:
             self.writeOutput("Found existing instance at: " + addr +':'+cport)
+            # import the existing graph structure
             self.connect(addr, int(cport))
+
         else:
             self.writeOutput("No existing instance found!") 
             self.writeOutput("Starting broadcast for this instance...")
@@ -107,7 +118,9 @@ class NetAppGUI(Frame):
             print "STARTING" +str(port)
             self.broadcast = server.udpServer(port)
             self.broadcast.start()
-        self.writeOutput("Thanks for your patience - Your ChatApp is read to use!") 
+        self.writeOutput("Thanks for your patience - Your ChatApp is read to use!")
+        self.writeOutput("...Remember to disconnect properly!")
+
     def nothing(self):
         print "nothing"
 
@@ -123,10 +136,9 @@ class NetAppGUI(Frame):
         if self.client is None:
             serv = client.Client(self, addr, port)
             serv.start()
-            self.client = serv 
+            self.client = serv
         else:
             self.writeOutput("u dumbfuk")
-
     # the udp broadcast for instance discovery
     def serverPrompt(self, master):
         top = Toplevel(master)
@@ -194,7 +206,7 @@ class NetAppGUI(Frame):
 #-----------------------------------------------------------------------------------#
 def main():
     root = Tk()
-    root.geometry("1000x600+300+300")
+    root.geometry("1200x700+300+300")
     app = NetAppGUI(root)
     root.mainloop()
 

@@ -3,6 +3,8 @@ import sys
 import threading
 import select
 import Queue
+import pickle
+import graph
 
 #----------------------------------------------------------------#
 # This is the broadcast client, initialized to discover          #
@@ -60,22 +62,37 @@ class Client(threading.Thread):
         server_address = (self.addr, self.port)
 
         # Create a TCP/IP socket
-        self.socks = [ socket.socket(socket.AF_INET, socket.SOCK_STREAM)]
+        self.socks.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
 
         # Connect the socket to the port where the server is listening
         self.parent.writeOutput('Connecting to %s port %s' % server_address)
         for s in self.socks:
             s.connect(server_address)
-        
         while 1:
             r,w,x = select.select(self.socks, self.socks, [])
             for s in r:
                 try:
                     data = s.recv(1024)
-                    self.parent.writeOutput("<"+str(s.getpeername()[0])+"> : "+data)
+                    print data
+                    if data.startswith('legbat'):
+                        jar = data[len('legbat'):]
+                        pickles = jar.split('legbat')
+                        p1 = pickle.loads(pickles[0])
+                        p2 = pickle.loads(pickles[1])
+                        print p1, p2
+                        self.parent.network = graph.NetGraph(self.parent, p1, p2) 
+                    else:
+                        self.parent.writeOutput("<"+str(s.getpeername())+"> : "+data)
                 except:
                     print "u fucking scrub"
                     
+    def requestGraph(self):
+        try:
+            requester = self.socks[0]
+            requester.send('retrievelegbat')
+        except:
+            print "u dum"
+            
     def sendMsg(self, message):
         for s in self.socks:
             s.send(message)

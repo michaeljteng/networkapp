@@ -3,6 +3,7 @@ import sys
 import threading
 import select
 import Queue
+import pickle
 from time import sleep
 
 class udpServer(threading.Thread):
@@ -49,6 +50,7 @@ class Server(threading.Thread):
         s_addr = (socket.gethostbyname(socket.gethostname()), 0)
         server.bind(s_addr)
         print self.parent.port
+        self.parent.node = str(server.getsockname())
         self.parent.port = server.getsockname()[1]
         print self.parent.port
         # listens with a backlog of 5 connections
@@ -84,9 +86,18 @@ class Server(threading.Thread):
                 else:
                     data = s.recv(1024)
                     print data
+                    if data == 'retrievelegbat':
+                        print "requesting legbat"
+                        print self.parent.network.nodes
+                        print self.parent.network.edges
+                        p1 = pickle.dumps(self.parent.network.nodes)
+                        p2 = pickle.dumps(self.parent.network.edges)
+                        self.send_through_server('legbat'+p1+'legbat'+p2)
+                        self.send_through_server('requesting legbat?')
+                        break
                     if data:
                         # A readable client socket has data
-                        self.parent.writeOutput("<"+str(s.getpeername()[0])+"> : "+data)
+                        self.parent.writeOutput("<"+str(s.getpeername())+"> : "+data)
                         self.message_queues[s].put(data)
                         # Add output channel for response
                         if s not in outputs:
