@@ -54,7 +54,7 @@ class NetGraph(Frame):
 
         self.graphFrame.pack()
         self.pack()
-
+    
     def new_connection(self, edge):
         node1 = edge[0]
         node2 = edge[1]
@@ -83,10 +83,8 @@ class NetGraph(Frame):
         self.nodes[node2].append((node1, weight))
         
     def drawGraph(self, flag):
-        f = Figure(figsize=(6,5.5), dpi=100)
-
+        f = Figure(figsize=(5.5,6), dpi=100)
         a = f.add_subplot(111)       
-
         
         self.graphFrame.destroy()
         self.graphFrame = Frame(self)
@@ -96,7 +94,7 @@ class NetGraph(Frame):
         
         # nodes
         pos=nx.spring_layout(self.G)
-        nx.draw_networkx_nodes(self.G,pos,node_size=300, ax=a)
+        nx.draw(self.G, pos, with_labels=False, node_size=0, ax=a) 
 
         # edges
         if flag == 1:
@@ -110,9 +108,8 @@ class NetGraph(Frame):
         nx.draw_networkx_edges(self.G,pos, width=1,ax=a)
 
         # labels
-        nx.draw_networkx_labels(self.G,pos,font_size=13,font_family='sans-serif', ax=a)
+        nx.draw_networkx_labels(self.G,pos,font_size=6,font_family='sans-serif', ax=a)
 
-        #self.canvas.show()
         canvas.get_tk_widget().pack(side=BOTTOM, fill=BOTH, expand=True)
 
         toolbar = NavigationToolbar2TkAgg(canvas, self.graphFrame)
@@ -120,7 +117,6 @@ class NetGraph(Frame):
         canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=True)
 
     def computeMST(self):
-        #kruskalEdges = sorted(self.G.edges(data=True), key=lambda (u,v,d): d['weight'])
         kruskalEdges = sorted(self.edges, key=lambda (u,v,d): d)
         mstEdges = []
 

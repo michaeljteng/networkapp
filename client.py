@@ -24,7 +24,7 @@ class udpClient(threading.Thread):
         # hardcoded to 50000 to avoid confusion
         s_addr = ('', 50000)
         
-        serv.settimeout(6)
+        serv.settimeout(2)
         serv.bind(s_addr)
         ap = ['','']
         success = 0
@@ -32,12 +32,15 @@ class udpClient(threading.Thread):
             try:
                 
                 data, addr = serv.recvfrom(1024) #wait for a packet
+
+                # success!
                 if data.startswith('legbat'):
-                    #print "got service announcement from", data[len('legbat'):]
                     ap = data[len('legbat'):].split("::")
                     success = 1
                     serv.close()
                     self.isOn = 0
+
+            # if socket times out, we failed to hear the broadcast
             except socket.timeout:
                 serv.close()
                 self.isOn = 0
@@ -53,6 +56,7 @@ class dClient(threading.Thread):
         self.parent = parent
         self.addr = addr 
         self.port = port
+        self.retrieved = None
         self.sock = None
         self.isOn = 0
 
@@ -61,24 +65,20 @@ class dClient(threading.Thread):
         server_addr = (self.addr, self.port)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.parent.writeOutput('Retrieving graph structure from %s, %s' % server_addr)
-      
+        self.parent.propagationChannel.append((self.parent.username, self.sock.getsockname()))  
         self.sock.connect(server_addr)
         self.parent.writeOutput('using addr:'+str(self.sock.getsockname()))
         try:
             data = self.sock.recv(2048)
-            print data
-            if data.startswith('legbat'):
-                jar = data[len('legbat'):]
-                pickles = jar.split('legbat')
-                p1 = pickle.loads(pickles[0])
-                p2 = pickle.loads(pickles[1])
-                print p1, p2
-                self.parent.network = graph.NetGraph(self.parent, p1, p2)
-            else:
-                print "its dover"
+            jar = data[len('legbat'):]
+            pickles = jar.split('legbat')
+            p1 = pickle.loads(pickles[0])
+            p2 = pickle.loads(pickles[1])
+            self.retrieved = (p1,p2)
         except:
-            print "u scrub"
-    
+            "bad thing have happened to the broadcaster" 
+            self.sock.close()
+            self.parent.parent.destroy()
 
 
 #----------------------------------------------------------------#
@@ -96,6 +96,7 @@ class Client(threading.Thread):
         self.ports = port_lst
         self.socks = []
         self.message_queues = {}
+        self.new_edges = []
         self.outputs = []
     
     def run(self):
@@ -117,9 +118,10 @@ class Client(threading.Thread):
 
             self.parent.network.new_connection(edge)
             new_edge = pickle.dumps(edge)
+            self.new_edges.append(new_edge)
             self.parent.propagationChannel.append((self.parent.username, s.getsockname()))
-            self.sendMsg('l3gb4t'+':aVZjW-:'+new_edge+':aVZjW-:')
-        print self.parent.propagationChannel
+        for edge in self.new_edges:
+            self.sendMsg('l3gb4t'+':aVZjW-:'+edge+':aVZjW-:')
         while self.isOn:
             r,w,x = select.select(self.socks, self.outputs, self.socks)
             
@@ -130,11 +132,8 @@ class Client(threading.Thread):
                     pickles = jar.split('legbat')
                     p1 = pickle.loads(pickles[0])
                     p2 = pickle.loads(pickles[1])
-                    print p1, p2
-                    self.parent.network = graph.NetGraph(self.parent, p1, p2)
-                    break
-                if data.startswith('l3gb4t'):
-                    print "NOT WRECKEDDDDD"
+                
+                elif data.startswith('l3gb4t'):
                     jar = data.split(':aVZjW-:')
                     p = pickle.loads(jar[1])
                     self.parent.network.new_connection(p)
@@ -146,9 +145,8 @@ class Client(threading.Thread):
                     self.message_queues[s].put('l3gb4t'+':aVZjW-:'+jar[1]+':aVZjW-:'+p_new)
                     if s not in self.outputs:
                         self.outputs.append(s)
-                    break
 
-                if data:
+                elif data:
                     jar = data.split(':F2Ua-0:')
                     p_prop = pickle.loads(jar[1])
                     p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
@@ -202,7 +200,6 @@ class Client(threading.Thread):
 
         for s in self.socks:
             s.close()
-        print "EXITED" 
     
     # use this to identify msgs that are sent from this instance first
     def sendMsg(self, message):

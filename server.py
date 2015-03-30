@@ -6,32 +6,46 @@ import Queue
 import pickle
 from time import sleep
 
+#------------------------------------------------------------------------------#
+# This is a broadcast server, remaining on until the application terminates    #
+# It broadcasts a packet to port 50000 every 0.1 seconds allowing for local    #
+# local subnet discovery                                                       #
+#------------------------------------------------------------------------------#
 class udpServer(threading.Thread):
-
-    def __init__(self, port):
+    def __init__(self, port, parent):
         threading.Thread.__init__(self)
+        # keep reference to main thread to shutdown
+        self.parent = parent
         self.daemon = True
         self.port = str(port)
         self.isOn = 0
-
     def run(self):
         self.isOn = 1
         serv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s_addr = ('', 0)
         serv.bind(s_addr)
         serv.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        
+        # try to get my_ip
         try:
-            my_ip = socket.gethostbyname(socket.gethostname())
+            my_ip = socket.gethostbyname(socket.getfqdn())
         except socket.gaierror:
-            print "wtf"
-            my_ip = 'ur completely fucked'
+            print "Error: Cannot Resolve IP - Shutting down"
+            serv.close()
+            self.parent.parent.destroy()
         while self.isOn:
+            # legbat is an arbitrary keyword to uniquely identify this program
+            # data broadcast must include server port for connections from 
+            # other instances if discovery is made
             data = "legbat"+my_ip+"::"+self.port
             serv.sendto(data, ('<broadcast>', 50000))
-            #print "sent service announcement to ", data 
             sleep(0.1)
         serv.close()
 
+#-----------------------------------------------------------------------------#
+#  This is main server, which can accept the graph retrieval connection       #
+#  as well as a direct connection for chatting                                #
+#-----------------------------------------------------------------------------#
 class Server(threading.Thread):
     def __init__(self, parent):
         threading.Thread.__init__(self)
@@ -45,55 +59,66 @@ class Server(threading.Thread):
 
     def run(self):
         self.isOn = 1
-        #create a TCP/IP socket
         try:
 	        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	        server.setblocking(0)
         except socket.error, msg:
 	        self.parent.writeOutput("failed to create socket")
-	        sys.exit()
+	        self.parent.parent.destroy()
 
-        # the '' thing is to list all possible hosts
         s_addr = (socket.gethostbyname(socket.gethostname()), 0)
         server.bind(s_addr)
+
+        # save all this instance's node and port information for network graph
         self.parent.node = str(server.getsockname()[0])+'::'+str(server.getsockname()[1])
         self.parent.port = server.getsockname()[1]
         # listens with a backlog of 5 connections
         server.listen(5)
 
         self.inputs.append(server)
-        self.parent.propagationChannel.append((self.parent.username, server.getsockname())) 
-        while self.isOn:
 
-            # Wait for at least one of the sockets to be ready for processing
+        # add to propogation channel to send through multiple hosts
+        self.parent.propagationChannel.append((self.parent.username, server.getsockname())) 
+        
+        while self.isOn:
+            # poll the sockets for ready to go buffers
             r, w, x = select.select(self.inputs, self.outputs, self.inputs)
 
-            # Handle inputs
+            # if s is readable, it has incoming connection requests or data
             for s in r:
 
+                # identifies the main server, we don't want to read from this, but
+                # rather, this means a incoming client wants a connection
                 if s is server:
-                    # A "readable" server socket is ready to accept a connection
                     connection, client_address = s.accept()
                     self.parent.writeOutput('new connection from' + str(client_address))
                     connection.setblocking(0)
+
+                    # connection opened on a new socket, not main server
                     self.inputs.append(connection)
 
-                    # Give the connection a queue for data we want to send
+                    # buffer to relay messages
                     self.message_queues[connection] = Queue.Queue()
-
+                
+                # else this is a regular connection, attempt to recieve incoming data
                 else:
-                    data = s.recv(1024)
+                    data = s.recv(2048)
+
+                    # server must send new instance the current graph structure
+                    # legbat is coded to mean graph
+                    # hopefully no one ever tries typing this into the prompt....
                     if data.startswith('retrievelegbat'):
                         p1 = pickle.dumps(self.parent.network.nodes)
                         p2 = pickle.dumps(self.parent.network.edges)
+                        # legbat identifies the graph retrieval
                         self.send_through_server('legbat'+p1+'legbat'+p2)
-                        break
-                    if data.startswith('l3gb4t'):
+
+                    # message is relaying a newly formed edge information to all
+                    elif data.startswith('l3gb4t'):
                         jar = data.split(':aVZjW-:')
                         p = pickle.loads(jar[1])
                         self.parent.network.new_connection(p)
-                        print "THE JAR"
-                        print jar
+
                         p_prop = pickle.loads(jar[2])
                         p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
 
@@ -101,8 +126,8 @@ class Server(threading.Thread):
                         self.message_queues[s].put('l3gb4t'+':aVZjW-:'+jar[1]+':aVZjW-:'+p_new)
                         if s not in self.outputs:
                             self.outputs.append(s)
-                        break
-                    if data:
+
+                    elif data:
                         jar = data.split(':F2Ua-0:')
                         p_prop = pickle.loads(jar[1])
                         p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
