@@ -51,7 +51,7 @@ class Server(threading.Thread):
         threading.Thread.__init__(self)
         self.daemon = True
         self.parent = parent
-        self.port = 0 #TBD
+        self.port = 0 
         self.message_queues = {}
         self.outputs = []
         self.inputs = []
@@ -131,18 +131,18 @@ class Server(threading.Thread):
                         jar = data.split(':F2Ua-0:')
                         p_prop = pickle.loads(jar[1])
                         p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
-                        # A readable client socket has data
-                        self.parent.writeOutput("<"+p_prop[0][0]+">: "+jar[0])
+                        if jar[0].startswith('exitc0d3'):
+                            self.parent.network.lost_connection(jar[0][len('exitc0d3'):])
+                        else:
+                            self.parent.writeOutput("<"+p_prop[0][0]+">: "+jar[0])
                         
                         self.message_queues[s].put(jar[0]+':F2Ua-0:'+p_new)
-                        # Add output channel for response
                         if s not in self.outputs:
                             self.outputs.append(s)
 
-
                     else:
                         # Interpret empty result as closed connection
-                        self.parent.writeOutput('closing' + str(client_address) + 'after reading no data')
+                        self.parent.writeOutput('closing')
                         # Stop listening for input on the connection
                         if s in self.outputs:
                             self.outputs.remove(s)
@@ -170,6 +170,7 @@ class Server(threading.Thread):
                                 already_sent = 1
                         if not already_sent:
                             s.send(next_msg)
+                    
                     else:
                         jar = next_msg.split(':F2Ua-0:')
                         p_prop = pickle.loads(jar[1])
@@ -197,5 +198,5 @@ class Server(threading.Thread):
         for s in self.message_queues:
             p = pickle.dumps(self.parent.propagationChannel)
             s.send(message+':F2Ua-0:'+p)
-
+            
          

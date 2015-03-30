@@ -97,16 +97,18 @@ class NetAppGUI(Frame):
     def declarePortNum(self):
         self.writeOutput("ChatApp is waiting on port: " + str(self.port)) 
 
+    # initiates the search for local instances
     def uclient_init(self):
         self.findInstance = client.udpClient()
         self.findInstance.start()
         self.writeOutput("Looking for existing instances.....please wait")
 
+    # determine if there is a local instance
     def isLocalInstance(self, port):
         (addr, cport, success) = self.findInstance.search
         if success:
             self.writeOutput("Found existing instance at: " + addr +':'+cport)
-            # import the existing graph structure
+            # import the existing graph structure if found
             self.dconnect(addr, int(cport))
         else:
             self.writeOutput("No existing instance found!") 
@@ -115,6 +117,7 @@ class NetAppGUI(Frame):
             self.broadcast = server.udpServer(port, self)
             self.broadcast.start()
     
+    # connecting using the graph retrieval client
     def dconnect(self, addr, port):
         if self.dc is None:
             serv = client.dClient(self, addr, port)
@@ -123,10 +126,10 @@ class NetAppGUI(Frame):
         else:
             self.writeOutput("GG")
 
+    #retrieving graph
     def retrieveGraph(self):
         if self.dc:
             self.dc.sock.send('retrievelegbat')
-            #self.network = graph.NetGraph(self, {self.node: []}, [])
         else:
             self.network = graph.NetGraph(self,{self.node: []}, [] )
         self.writeOutput("Thanks for your patience - Your ChatApp is read to use!")
@@ -148,12 +151,17 @@ class NetAppGUI(Frame):
                 
             pings.sort()
 
-            addr_lst = [address for (address, p) in pings]
-            serv = client.Client(self, addr_lst, port_lst, edge_lst)
+            serv = client.Client(self, pings, port_lst, edge_lst)
             serv.start()
             self.client = serv
 
+    # safe exit, hopefully
     def exitApp(self):
+        self.network.lost_connection(self.node)
+        self.server.send_through_server('exitc0d3'+self.node)
+        if self.client:
+            self.client.sendMsg('exitc0d3'+self.node)
+
         for process in [self.broadcast, self.server, self.client]:
             if process:
                 process.isOn = 0
@@ -167,62 +175,16 @@ class NetAppGUI(Frame):
         os._exit(1)
         self.parent.destroy()
 
-    def server_init(self, addr, port, window):
-        serv = server.Server(self, addr)
-        serv.start()
-        self.server = serv
-        if window:
-            window.destroy()
-
- 
- 
-    # the udp broadcast for instance discovery
-    def serverPrompt(self, master):
-        top = Toplevel(master)
-        top.title("Custom Server")
-        top.grab_set()
-        Label(top, text="Addr:").grid(row=0)
-        port = Entry(top)
-        port.grid(row=0, column=1)
-        port.focus_set()
-        Label(top, text="Port:").grid(row=1)
-        port2 = Entry(top)
-        port2.grid(row=1, column=1)
-        port2.focus_set()
-        go = Button(top, text="Launch", command=lambda: self.server_init(port.get(), port2.get(), top))
-        go.grid(row=2, column=1)
-
-
-
-       
-    def custom_server(self, master):
-        #Launches server options window for getting port
-        top = Toplevel(master)
-        top.title("custom server")
-        top.grab_set()
-        Label(top, text="Port:").grid(row=0)
-        port = Entry(top)
-        port.grid(row=0, column=1)
-        port.focus_set()
-        go = Button(top, text="Launch", 
-                    command=lambda: self.server_init(port.get(), top))
-        go.grid(row=1, column=1)
-
+    # sends messages for propagation
     def clearField(self, text, clearField):
-
-        # probably a better way to do this, but i'm being lazy
-        # thank god python is functional
-        # yes, this is really all that is happening does....
         clearField
         self.writeOutput("<you> : " + text)
-        if text == 'showmygraph':
-            print self.network.nodes
-            print self.network.edges
         if self.client:
             self.client.sendMsg(text)
         if self.server:
             self.server.send_through_server(text)
 
+    # write to chat box
     def writeOutput(self, text):
         self.chatText.config(state=NORMAL)
         self.chatText.insert(END, '\n')

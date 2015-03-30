@@ -48,7 +48,7 @@ class udpClient(threading.Thread):
         # record results
         self.search = (ap[0], ap[1], success)
         
-
+# solely for graph retrieval purposes
 class dClient(threading.Thread):
     def __init__(self, parent, addr, port):
         threading.Thread.__init__(self)
@@ -75,6 +75,7 @@ class dClient(threading.Thread):
             p1 = pickle.loads(pickles[0])
             p2 = pickle.loads(pickles[1])
             self.retrieved = (p1,p2)
+            self.sock.close()
         except:
             "bad things have happened to the broadcaster" 
             self.sock.close()
@@ -108,43 +109,44 @@ class Client(threading.Thread):
         for edge in self.edges:
             self.parent.network.new_connection(edge)
         
+        # 4 connections to start
         for i in xrange(len(self.addrs)):
             if self.successes == 4:
                 break
             
             # first check the degree of attempted connections, may be equal to 8 already
-            node2 = self.addrs[i]+'::'+str(self.ports[i])
+            node2 = self.addrs[i][0]+'::'+str(self.ports[i])
             if node2 in self.parent.network.nodes:
                 degree = len(self.parent.network.nodes[node2]) # the adj list for this node
                 if degree >= 8:
                     break
 
-            server_address = (self.addrs[i], self.ports[i])
-            # Create a TCP/IP socket
+            server_address = (self.addrs[i][0], self.ports[i])
             
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socks.append(s)
             self.message_queues[s] = Queue.Queue()
-            # Connect the socket to the port where the server is listening
+            # connect to correct server
             self.parent.writeOutput('Connecting to %s port %s' % server_address)
             
             s.connect(server_address)
             node1 = self.parent.node
             
-            edge = (node1, node2, 0.5)
+            edge = (node1, node2, self.addrs[i][1])
 
             self.parent.network.new_connection(edge)
             new_edge = pickle.dumps(edge)
             self.new_edges.append(new_edge)
-            self.parent.propagationChannel.append((self.parent.username, s.getsockname()))
             self.successes += 1
 
         for edge in self.new_edges:
             self.sendMsg('l3gb4t'+':aVZjW-:'+edge+':aVZjW-:')
+            
         while self.isOn:
             r,w,x = select.select(self.socks, self.outputs, self.socks)
             
             for s in r:
+                
                 data = s.recv(1048576)
                 if data.startswith('legbat'):
                     jar = data[len('legbat'):]
@@ -169,7 +171,11 @@ class Client(threading.Thread):
                     jar = data.split(':F2Ua-0:')
                     p_prop = pickle.loads(jar[1])
                     p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
-                    self.parent.writeOutput("<"+p_prop[0][0]+">: "+jar[0])
+
+                    if jar[0].startswith('exitc0d3'):
+                        self.parent.network.lost_connection(jar[0][len('exitc0d3'):])
+                    else:
+                        self.parent.writeOutput("<"+p_prop[0][0]+">: "+jar[0])
                     
                     self.message_queues[s].put(jar[0]+':F2Ua-0:'+p_new)
                     if s not in self.outputs:
@@ -197,6 +203,7 @@ class Client(threading.Thread):
                                 already_sent = 1
                         if not already_sent:
                             s.send(next_msg)
+
                     else:
                         jar = next_msg.split(':F2Ua-0:')
                         p_prop = pickle.loads(jar[1])
@@ -226,6 +233,4 @@ class Client(threading.Thread):
                 s.send(message+p)
             else:
                 s.send(message+':F2Ua-0:'+p)
-
-
 

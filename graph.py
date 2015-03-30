@@ -20,33 +20,32 @@ class NetGraph(Frame):
         self.nodes = nodes
         self.edges = edges
         self.G = nx.Graph()
-        # set up the matplotlib figure
         self.path = []
         self.found = None 
         self.graphFrame = Frame(self)
         self.initNetGraph()
         self.exButton = None
        
-       # testing
 
     def initNetGraph(self):    
         label = Label(self, text="Network Visualization") 
         label.pack()
         
         buttonsFrame = Frame(self)
+        listButton = Button(buttonsFrame, text="List All Users", command=lambda: self.listUsers())
         mstButton = Button(buttonsFrame, text="MST", command=lambda: self.drawGraph(1))
         spButton = Button(buttonsFrame, text="Shortest Path", command=lambda: self.pathPrompt(self.parent))
         findButton = Button(buttonsFrame, text="Find User", command=lambda: self.findUser(self.parent))
         ogButton = Button(buttonsFrame, text="Original Graph", command=lambda: self.drawGraph(0))
         
+        listButton.grid(row=0, column=5)
         mstButton.grid(row=0, column=1)
         spButton.grid(row=0, column=2)
         findButton.grid(row=0, column=3)
         ogButton.grid(row=0, column=4)
         buttonsFrame.pack()
 
-        # add nodes with visited property to 0 for Djikstra's and DFS
-        
+        #initial graph is just one node always 
         for (x,y,w) in self.edges:
             self.G.add_edge(x,y)
 
@@ -56,6 +55,7 @@ class NetGraph(Frame):
         self.graphFrame.pack()
         self.pack()
     
+    # this is where graph gets created via the messages from instances indicating connection
     def new_connection(self, edge):
         node1 = edge[0]
         node2 = edge[1]
@@ -74,7 +74,26 @@ class NetGraph(Frame):
         self.edges.append(edge)
         self.nodes[node1].append((node2, weight))
         self.nodes[node2].append((node1, weight))
-        
+   
+    # deletes local netowrk graphs node, then passes on message for other instances to follow suit
+    def lost_connection(self, node):
+        if self.nodes[node]:
+            for (endpoint, weight) in self.nodes[node]:
+                edge1 = (node, endpoint, weight)
+                edge2 = (endpoint, node, weight)
+                if edge1 in self.edges:
+                    self.edges.remove(edge1)
+                    self.G.remove_edge(node, endpoint)
+                if edge2 in self.edges:
+                    self.edges.remove(edge2)
+                    self.G.remove_edge(endpoint, node)
+                self.nodes[endpoint].remove((node, weight))
+            if node in self.nodes:
+                del self.nodes[node]
+            if node in self.G.nodes():
+                self.G.remove_node(node)
+    
+    # matplotlib figure into tkinter with networkx
     def drawGraph(self, flag):
         f = Figure(figsize=(5.5,6), dpi=100)
         a = f.add_subplot(111)       
@@ -102,30 +121,40 @@ class NetGraph(Frame):
 
         # labels
         nx.draw_networkx_labels(self.G,pos,font_size=6,font_family='sans-serif', ax=a)
-
         canvas.get_tk_widget().pack(side=BOTTOM, fill=BOTH, expand=True)
 
         toolbar = NavigationToolbar2TkAgg(canvas, self.graphFrame)
         toolbar.update()
         canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=True)
-
+#-------------------------------------------------------------------------------------#
+# this is a minimum spanning tree algorithm using kruskal's algorithm, it has an      #
+# advantage over prim's due to its ability to find the mst even if the graph has      #
+# disconnected components - runs in O(Edges*Nodes*2), this is fine for our purposes   #
+#-------------------------------------------------------------------------------------#
     def computeMST(self):
+        
         kruskalEdges = sorted(self.edges, key=lambda (u,v,d): d)
         mstEdges = []
 
+        # a forest of individual trees (one node each to start)
         kruskalForest = [set([node]) for node in self.nodes]
         
+        # for each edge, starting with the smallest, we have 
         for (u,v,d) in kruskalEdges:
             ta = self.findInForest(u, kruskalForest)
             tb = self.findInForest(v, kruskalForest)
+            # if they are in disjoint trees, then join them
             if ta != tb:
                 mstEdges.append((u,v,d))
                 tc = ta.union(tb)
+                #create the new tree
                 kruskalForest.remove(tb)
                 kruskalForest.remove(ta)
                 kruskalForest.append(tc)
         return mstEdges
 
+    # helper function for computeMST, identifies if an edge is in the same forest or not
+    # this is O(N) where N is the number of nodes
     def findInForest(self, item, lst):
         try:
             for s in lst:
@@ -133,6 +162,10 @@ class NetGraph(Frame):
                     return s
         except:
             raise
+#-----------------------------------------------------------------------------------#
+# Shortest path algorithm using djikstra's algorithm along with a suspect           #
+# decrease_key implementation                                                       #
+#-----------------------------------------------------------------------------------#
 
     def djikstra(self, start, end, window):
         if start == end:
@@ -162,6 +195,7 @@ class NetGraph(Frame):
                     prev[node] = 'undefined'
             heapify(minheap)
             
+            # always visit the easiest possible, until heap is empty
             while minheap:
                 (distance, visited, node) = heappop(minheap)
                 dist[node] = (distance, 1, node)
@@ -169,8 +203,10 @@ class NetGraph(Frame):
                     if dist[neighbor][1] == 0:
                         alt = distance + distance_to
                         if alt < dist[neighbor][0]:
+                            # makeshift decrease_key
                             minheap.remove(dist[neighbor])
                             dist[neighbor] = (alt, 0, neighbor)
+                            # there is a way to reach the next node that is easier
                             prev[neighbor] = node
                             heappush(minheap, dist[neighbor])
             
@@ -184,11 +220,17 @@ class NetGraph(Frame):
                     result.append((prev[source],source))
                     source = prev[source]
             self.path = result
+            self.parent.writeOutput(str(result))
             self.drawGraph(2)
             window.destroy()
         window.destroy()
-
-    def themostuseless(self, node, window):
+    
+    # lists all users in the main chat
+    def listUsers(self):
+        self.parent.writeOutput(str(self.G.nodes()))
+    
+    # function called by findUser
+    def returnUser(self, node, window):
         if node in self.nodes:
             self.found = node
             window.destroy()
@@ -196,9 +238,10 @@ class NetGraph(Frame):
             self.parent.writeOutput("User does not exist!")
             self.found = None
             window.destroy()
-
+        # color the found node if it has been found
         self.drawGraph(3)
 
+    # prompter for user find
     def findUser(self, master):
         top = Toplevel(master)
         top.title("user?")
@@ -206,9 +249,10 @@ class NetGraph(Frame):
         Label(top, text="wtf").grid(row=0)
         port = Entry(top)
         port.grid(row=0, column=1)
-        go = Button(top, text="launch", command=lambda: self.themostuseless(port.get(), top))
+        go = Button(top, text="launch", command=lambda: self.returnUser(port.get(), top))
         go.grid(row=2, column=1)
 
+    # prompter for djikstra
     def pathPrompt(self, master):
         top = Toplevel(master)
         top.title("shortest path")
@@ -221,6 +265,6 @@ class NetGraph(Frame):
         port2 = Entry(top)
         port2.grid(row=1, column=1)
         port2.focus_set()
-        go = Button(top, text="Launch", command=lambda: self.new_connection(port1.get(), port2.get(), top))
+        go = Button(top, text="Launch", command=lambda: self.djikstra(port1.get(), port2.get(), top))
         go.grid(row=2, column=1)
         
