@@ -7,6 +7,7 @@ import graph
 import pickle
 import atexit
 import os
+import random
 
 if not sys.hexversion > 0x03000000:
     from Tkinter import *
@@ -33,6 +34,7 @@ class NetAppGUI(Frame):
         self.dc = None
         self.username = None
         self.propagationChannel = []
+        random.seed()
         self.launchApp()
 
     def launchApp(self):
@@ -59,15 +61,10 @@ class NetAppGUI(Frame):
         remoteHostButton.grid(row=0, column=2)
         buttonsFrame.pack()
 
-        # add a new frames to seperate the visualization and chat
         chatFrame = Frame(self, relief=RAISED, borderwidth=1)
         chatTopFrame = Frame(chatFrame) 
-        # a text widget for the chat
         self.chatText = Text(chatTopFrame)
-        # a scrollbar for the chat
         chatScroll = Scrollbar(chatTopFrame)
-        # a place to input text and or commands
-        
         chatTopFrame.pack(side=TOP, expand=1, fill=BOTH)
         inputText = Entry(chatFrame, borderwidth=1)
         inputText.bind("<Return>", lambda event: self.clearField(inputText.get(), inputText.delete(0, END)))
@@ -126,29 +123,33 @@ class NetAppGUI(Frame):
         else:
             self.writeOutput("GG")
 
-    # this does not work inside the connect function, perhaps connecting takes
-    # too long.
     def retrieveGraph(self):
         if self.dc:
             self.dc.sock.send('retrievelegbat')
-            self.network = graph.NetGraph(self, {self.node: []}, [])
+            #self.network = graph.NetGraph(self, {self.node: []}, [])
         else:
             self.network = graph.NetGraph(self,{self.node: []}, [] )
         self.writeOutput("Thanks for your patience - Your ChatApp is read to use!")
         self.writeOutput("...Remember to disconnect properly!")
 
-    # for actual connections    
+    # for actual connections 
     def app_connect(self):
-             
         addr_lst = []
         port_lst = []
+        # need to write a real way to ping instead of current implementation, will fix later...
+        edge_lst = []
+        pings = []
         if self.dc:
             for node in self.dc.retrieved[0]:
-                addr_lst.append(node.split('::')[0])
+                ad = node.split('::')[0]
+                pings.append((ad, random.uniform(0.0,25.0)))
                 port_lst.append(int(node.split('::')[1]))
-            for edge in self.dc.retrieved[1]:
-                self.network.new_connection(edge)
-            serv = client.Client(self, addr_lst, port_lst)
+            edge_lst = self.dc.retrieved[1]
+                
+            pings.sort()
+
+            addr_lst = [address for (address, p) in pings]
+            serv = client.Client(self, addr_lst, port_lst, edge_lst)
             serv.start()
             self.client = serv
 
@@ -162,7 +163,7 @@ class NetAppGUI(Frame):
         del self.server
         del self.client
         del self.network
-        print "wtf did u just do"
+        sys.exit(1)
         os._exit(1)
         self.parent.destroy()
 
@@ -220,7 +221,6 @@ class NetAppGUI(Frame):
         if self.client:
             self.client.sendMsg(text)
         if self.server:
-            print "why so serious"
             self.server.send_through_server(text)
 
     def writeOutput(self, text):
@@ -231,7 +231,7 @@ class NetAppGUI(Frame):
         self.chatText.config(state=DISABLED)
 
     # a convoluted way of getting the ping
-    def ping(self, addr):
+    def ping_addr(self, addr):
         result = subprocess.Popen(["ping", "-c", "1", addr], 
                                     stdout=subprocess.PIPE, 
                                     stderr=subprocess.PIPE)
@@ -240,6 +240,9 @@ class NetAppGUI(Frame):
         if out1[1]:
             ping = float(out1[1].split(" ms\n")[0])
             self.writeOutput(str(ping))
+            return ping+random.uniform(0.0,25.0)
+        else:
+            return random.uniform(0.0,100.0)
             
 #-----------------------------------------------------------------------------------#
 def main():

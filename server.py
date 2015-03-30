@@ -180,8 +180,7 @@ class Server(threading.Thread):
                         if not already_sent:
                             s.send(next_msg)
 
-
-            # Handle "exceptional conditions"
+            # this is pretty much unreachable, unless u did something extraordinary
             for s in x:
                 self.parent.writeOutput('handling exceptional condition for' + str(s.getpeername()))
                 # Stop listening for input on the connection

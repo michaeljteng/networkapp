@@ -76,7 +76,7 @@ class dClient(threading.Thread):
             p2 = pickle.loads(pickles[1])
             self.retrieved = (p1,p2)
         except:
-            "bad thing have happened to the broadcaster" 
+            "bad things have happened to the broadcaster" 
             self.sock.close()
             self.parent.parent.destroy()
 
@@ -87,13 +87,15 @@ class dClient(threading.Thread):
 # order to achieve asynchronous I/O                              #
 #----------------------------------------------------------------#
 class Client(threading.Thread):
-    def __init__(self, parent, addr_lst, port_lst):
+    def __init__(self, parent, addr_lst, port_lst, edge_lst):
         threading.Thread.__init__(self)
         self.daemon = True
         self.isOn = 0
         self.parent = parent # this is the tkinter widget
         self.addrs = addr_lst
         self.ports = port_lst
+        self.edges = edge_lst
+        self.successes = 0
         self.socks = []
         self.message_queues = {}
         self.new_edges = []
@@ -101,7 +103,22 @@ class Client(threading.Thread):
     
     def run(self):
         self.isOn = 1
+        self.parent.network = graph.NetGraph(self.parent, {self.parent.node: []}, [])
+        
+        for edge in self.edges:
+            self.parent.network.new_connection(edge)
+        
         for i in xrange(len(self.addrs)):
+            if self.successes == 4:
+                break
+            
+            # first check the degree of attempted connections, may be equal to 8 already
+            node2 = self.addrs[i]+'::'+str(self.ports[i])
+            if node2 in self.parent.network.nodes:
+                degree = len(self.parent.network.nodes[node2]) # the adj list for this node
+                if degree >= 8:
+                    break
+
             server_address = (self.addrs[i], self.ports[i])
             # Create a TCP/IP socket
             
@@ -113,20 +130,22 @@ class Client(threading.Thread):
             
             s.connect(server_address)
             node1 = self.parent.node
-            node2 = self.addrs[i]+'::'+str(self.ports[i])
+            
             edge = (node1, node2, 0.5)
 
             self.parent.network.new_connection(edge)
             new_edge = pickle.dumps(edge)
             self.new_edges.append(new_edge)
             self.parent.propagationChannel.append((self.parent.username, s.getsockname()))
+            self.successes += 1
+
         for edge in self.new_edges:
             self.sendMsg('l3gb4t'+':aVZjW-:'+edge+':aVZjW-:')
         while self.isOn:
             r,w,x = select.select(self.socks, self.outputs, self.socks)
             
             for s in r:
-                data = s.recv(1024)
+                data = s.recv(1048576)
                 if data.startswith('legbat'):
                     jar = data[len('legbat'):]
                     pickles = jar.split('legbat')
@@ -150,11 +169,9 @@ class Client(threading.Thread):
                     jar = data.split(':F2Ua-0:')
                     p_prop = pickle.loads(jar[1])
                     p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
-                    # A readable client socket has data
                     self.parent.writeOutput("<"+p_prop[0][0]+">: "+jar[0])
                     
                     self.message_queues[s].put(jar[0]+':F2Ua-0:'+p_new)
-                    # Add output channel for response
                     if s not in self.outputs:
                         self.outputs.append(s)
 

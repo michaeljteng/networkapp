@@ -26,7 +26,8 @@ class NetGraph(Frame):
         self.graphFrame = Frame(self)
         self.initNetGraph()
         self.exButton = None
-        
+       
+       # testing
 
     def initNetGraph(self):    
         label = Label(self, text="Network Visualization") 
@@ -59,22 +60,14 @@ class NetGraph(Frame):
         node1 = edge[0]
         node2 = edge[1]
         weight = edge[2]
-        print self.nodes
-        print self.edges
-        print self.G.nodes()
-        print self.G.edges()
         if node1 not in self.nodes:
             self.nodes[node1] = []
-            print 1
         if node2 not in self.nodes:
             self.nodes[node2] = []
-            print 2
         if node1 not in self.G.nodes():
             self.G.add_node(node1)
-            print 3
         if node2 not in self.G.nodes():
             self.G.add_node(node2)
-            print 4
         if (node1, node2) not in self.G.edges():
             self.G.add_edge(node1, node2)
             
@@ -121,20 +114,16 @@ class NetGraph(Frame):
         mstEdges = []
 
         kruskalForest = [set([node]) for node in self.nodes]
-        print kruskalForest
         
         for (u,v,d) in kruskalEdges:
-            print u, v
             ta = self.findInForest(u, kruskalForest)
             tb = self.findInForest(v, kruskalForest)
-            print ta,tb
             if ta != tb:
                 mstEdges.append((u,v,d))
                 tc = ta.union(tb)
                 kruskalForest.remove(tb)
                 kruskalForest.remove(ta)
                 kruskalForest.append(tc)
-            print kruskalForest
         return mstEdges
 
     def findInForest(self, item, lst):
@@ -147,13 +136,13 @@ class NetGraph(Frame):
 
     def djikstra(self, start, end, window):
         if start == end:
-            print "nice query u pro"
+            self.parent.writeOutput("Same node!")
             self.path = []
             self.drawGraph(2)
             window.destroy()
 
         elif start not in self.nodes or end not in self.nodes:
-            print "your query is impossible"
+            self.parent.writeOutput("Nodes not in graph!")
             self.path = []
             self.drawGraph(2)
             window.destroy()
@@ -189,13 +178,12 @@ class NetGraph(Frame):
             source = end
             result = []
             if prev[end] == 'undefined':
-                print "no path"
+                self.parent.writeOutput("Path does not exist!")
             else:
                 while source != start:
                     result.append((prev[source],source))
                     source = prev[source]
             self.path = result
-            print result 
             self.drawGraph(2)
             window.destroy()
         window.destroy()
@@ -205,7 +193,7 @@ class NetGraph(Frame):
             self.found = node
             window.destroy()
         else:
-            print "not in graph"
+            self.parent.writeOutput("User does not exist!")
             self.found = None
             window.destroy()
 
