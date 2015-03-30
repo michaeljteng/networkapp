@@ -18,7 +18,6 @@ class udpServer(threading.Thread):
         self.isOn = 1
         serv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s_addr = ('', 0)
-        print "WTFFFF" + self.port
         serv.bind(s_addr)
         serv.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         try:
@@ -30,7 +29,7 @@ class udpServer(threading.Thread):
             data = "legbat"+my_ip+"::"+self.port
             serv.sendto(data, ('<broadcast>', 50000))
             #print "sent service announcement to ", data 
-            sleep(2)
+            sleep(0.1)
         serv.close()
 
 class Server(threading.Thread):
@@ -57,20 +56,13 @@ class Server(threading.Thread):
         # the '' thing is to list all possible hosts
         s_addr = (socket.gethostbyname(socket.gethostname()), 0)
         server.bind(s_addr)
-        print self.parent.port
         self.parent.node = str(server.getsockname()[0])+'::'+str(server.getsockname()[1])
         self.parent.port = server.getsockname()[1]
-        print self.parent.port
         # listens with a backlog of 5 connections
         server.listen(5)
 
         self.inputs.append(server)
-        # Sockets from which we expect to read
-        #inputs = [ server ]
-        
-        # Sockets to which we expect to write
-    
-        
+        self.parent.propagationChannel.append((self.parent.username, server.getsockname())) 
         while self.isOn:
 
             # Wait for at least one of the sockets to be ready for processing
@@ -91,19 +83,33 @@ class Server(threading.Thread):
 
                 else:
                     data = s.recv(1024)
-                    if data == 'retrievelegbat':
-                        print "requesting legbat"
-                        print self.parent.network.nodes
-                        print self.parent.network.edges
+                    if data.startswith('retrievelegbat'):
                         p1 = pickle.dumps(self.parent.network.nodes)
                         p2 = pickle.dumps(self.parent.network.edges)
                         self.send_through_server('legbat'+p1+'legbat'+p2)
-                        self.send_through_server('requesting legbat?')
+                        break
+                    if data.startswith('l3gb4t'):
+                        jar = data.split(':aVZjW-:')
+                        p = pickle.loads(jar[1])
+                        self.parent.network.new_connection(p)
+                        print "THE JAR"
+                        print jar
+                        p_prop = pickle.loads(jar[2])
+                        p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
+
+
+                        self.message_queues[s].put('l3gb4t'+':aVZjW-:'+jar[1]+':aVZjW-:'+p_new)
+                        if s not in self.outputs:
+                            self.outputs.append(s)
                         break
                     if data:
+                        jar = data.split(':F2Ua-0:')
+                        p_prop = pickle.loads(jar[1])
+                        p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
                         # A readable client socket has data
-                        self.parent.writeOutput("<"+str(s.getpeername())+"> : "+data)
-                        self.message_queues[s].put(data)
+                        self.parent.writeOutput("<"+p_prop[0][0]+">: "+jar[0])
+                        
+                        self.message_queues[s].put(jar[0]+':F2Ua-0:'+p_new)
                         # Add output channel for response
                         if s not in self.outputs:
                             self.outputs.append(s)
@@ -130,10 +136,25 @@ class Server(threading.Thread):
                     #self.parent.writeOutput('output queue for' + str(s.getpeername()) + 'is empty')
                     self.outputs.remove(s)
                 else:
-                    #self.parent.writeOutput('sending "%s" to %s' % (next_msg, s.getpeername()))
-                    # REMBER THIS SETUP IT IS FOR PROPAGATION!!!!!
-                    #s.send(next_msg+'echoed back bitch')
-                    print "holding"
+                    if next_msg.startswith('l3gb4t'):
+                        jar = next_msg.split(':aVZjW-:')
+                        p_prop = pickle.loads(jar[2])
+                        already_sent = 0
+                        for (uname, sockname) in p_prop:
+                            if s.getpeername() == sockname:
+                                already_sent = 1
+                        if not already_sent:
+                            s.send(next_msg)
+                    else:
+                        jar = next_msg.split(':F2Ua-0:')
+                        p_prop = pickle.loads(jar[1])
+                        already_sent = 0
+                        for (uname, sockname) in p_prop:
+                            if s.getpeername() == sockname:
+                                already_sent = 1
+                        if not already_sent:
+                            s.send(next_msg)
+
 
             # Handle "exceptional conditions"
             for s in x:
@@ -146,12 +167,11 @@ class Server(threading.Thread):
 
                 # Remove message queue
                 del self.message_queues[s]
-        server.close()    
+        server.close()   
+
     def send_through_server(self, message):
         for s in self.message_queues:
-            print "dont work"
-            s.send(message)
-            #self.message_queues[s].put(message)
-                # Add output channel for response
-            #if s not in self.outputs:
-                #self.outputs.append(s)
+            p = pickle.dumps(self.parent.propagationChannel)
+            s.send(message+':F2Ua-0:'+p)
+
+         

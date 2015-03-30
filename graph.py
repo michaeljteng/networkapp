@@ -49,9 +49,6 @@ class NetGraph(Frame):
         for (x,y,w) in self.edges:
             self.G.add_edge(x,y)
 
-         #   self.nodes[x].append((y,w))
-          #  self.nodes[y].append((x,w))
-        
         for node in self.nodes:
             self.G.add_node(node)
 

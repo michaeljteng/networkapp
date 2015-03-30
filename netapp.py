@@ -32,6 +32,7 @@ class NetAppGUI(Frame):
         self.network = None
         self.dc = None
         self.username = None
+        self.propagationChannel = []
         self.launchApp()
 
     def launchApp(self):
@@ -91,10 +92,10 @@ class NetAppGUI(Frame):
         master_serv.start()
         self.server = master_serv 
         self.after(500, lambda: self.declarePortNum())
-        self.after(1000, lambda: self.uclient_init())
-        self.after(7500, lambda: self.isLocalInstance(self.port))
-        self.after(8000, lambda: self.retrieveGraph())
-        self.after(8500, lambda: self.app_connect())
+        self.after(100, lambda: self.uclient_init())
+        self.after(1500, lambda: self.isLocalInstance(self.port))
+        self.after(2000, lambda: self.retrieveGraph())
+        self.after(3000, lambda: self.app_connect())
 #        self.ping('192.168.1.8')
               #c = client.Client('',10000)
         #c.start()
@@ -159,17 +160,16 @@ class NetAppGUI(Frame):
         else:
             print "u dumbfuk"
 
-
     def exitApp(self):
-        self.broadcast.isOn = 0
-        self.server.isOn = 0
+        for process in [self.broadcast, self.server, self.client]:
+            if process:
+                process.isOn = 0
         del self.chatText
         del self.findInstance
         del self.broadcast
         del self.server
         del self.client
         del self.network
-        sys.exit(1)
         os._exit(1)
         self.parent.destroy()
 

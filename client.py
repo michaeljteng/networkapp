@@ -28,20 +28,19 @@ class udpClient(threading.Thread):
         serv.bind(s_addr)
         ap = ['','']
         success = 0
-        try:
-            while 1:
-                try:
-                    
-                    data, addr = serv.recvfrom(1024) #wait for a packet
-                    if data.startswith('legbat'):
-                        #print "got service announcement from", data[len('legbat'):]
-                        ap = data[len('legbat'):].split("::")
-                        success = 1
-                        serv.close()
-                except socket.timeout:
+        while self.isOn:
+            try:
+                
+                data, addr = serv.recvfrom(1024) #wait for a packet
+                if data.startswith('legbat'):
+                    #print "got service announcement from", data[len('legbat'):]
+                    ap = data[len('legbat'):].split("::")
+                    success = 1
                     serv.close()
-        except:
-            print "done searching"
+                    self.isOn = 0
+            except socket.timeout:
+                serv.close()
+                self.isOn = 0
 
         # record results
         self.search = (ap[0], ap[1], success)
@@ -55,8 +54,10 @@ class dClient(threading.Thread):
         self.addr = addr 
         self.port = port
         self.sock = None
+        self.isOn = 0
 
     def run(self):
+        self.isOn = 1
         server_addr = (self.addr, self.port)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.parent.writeOutput('Retrieving graph structure from %s, %s' % server_addr)
@@ -115,7 +116,10 @@ class Client(threading.Thread):
             edge = (node1, node2, 0.5)
 
             self.parent.network.new_connection(edge)
-        
+            new_edge = pickle.dumps(edge)
+            self.parent.propagationChannel.append((self.parent.username, s.getsockname()))
+            self.sendMsg('l3gb4t'+':aVZjW-:'+new_edge+':aVZjW-:')
+        print self.parent.propagationChannel
         while self.isOn:
             r,w,x = select.select(self.socks, self.outputs, self.socks)
             
@@ -129,11 +133,33 @@ class Client(threading.Thread):
                     print p1, p2
                     self.parent.network = graph.NetGraph(self.parent, p1, p2)
                     break
-                if data:
-                    self.parent.writeOutput("<"+str(s.getpeername())+"> : "+data)
-                    self.message_queues[s].put(data)
+                if data.startswith('l3gb4t'):
+                    print "NOT WRECKEDDDDD"
+                    jar = data.split(':aVZjW-:')
+                    p = pickle.loads(jar[1])
+                    self.parent.network.new_connection(p)
+
+                    p_prop = pickle.loads(jar[2])
+                    p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
+
+
+                    self.message_queues[s].put('l3gb4t'+':aVZjW-:'+jar[1]+':aVZjW-:'+p_new)
                     if s not in self.outputs:
                         self.outputs.append(s)
+                    break
+
+                if data:
+                    jar = data.split(':F2Ua-0:')
+                    p_prop = pickle.loads(jar[1])
+                    p_new = pickle.dumps(p_prop + self.parent.propagationChannel)
+                    # A readable client socket has data
+                    self.parent.writeOutput("<"+p_prop[0][0]+">: "+jar[0])
+                    
+                    self.message_queues[s].put(jar[0]+':F2Ua-0:'+p_new)
+                    # Add output channel for response
+                    if s not in self.outputs:
+                        self.outputs.append(s)
+
                 else:
                     self.parent.writeOutput('closing')
                     if s in self.outputs:
@@ -147,8 +173,25 @@ class Client(threading.Thread):
                 except Queue.Empty:
                     self.outputs.remove(s)
                 else:
-                    s.send(next_msg+'echo')
-                    print "holding"
+                    if next_msg.startswith('l3gb4t'):
+                        jar = next_msg.split(':aVZjW-:')
+                        p_prop = pickle.loads(jar[2])
+                        already_sent = 0
+                        for (uname, sockname) in p_prop:
+                            if s.getpeername() == sockname:
+                                already_sent = 1
+                        if not already_sent:
+                            s.send(next_msg)
+                    else:
+                        jar = next_msg.split(':F2Ua-0:')
+                        p_prop = pickle.loads(jar[1])
+                        already_sent = 0
+                        for (uname, sockname) in p_prop:
+                            if s.getpeername() == sockname:
+                                already_sent = 1
+                        if not already_sent:
+                            s.send(next_msg)
+
 
             for s in x:
                 self.socks.remove(s)
@@ -160,7 +203,15 @@ class Client(threading.Thread):
         for s in self.socks:
             s.close()
         print "EXITED" 
-        
+    
+    # use this to identify msgs that are sent from this instance first
     def sendMsg(self, message):
         for s in self.socks:
-            s.send(message)
+            p = pickle.dumps(self.parent.propagationChannel)
+            if message.startswith('l3gb4t'):
+                s.send(message+p)
+            else:
+                s.send(message+':F2Ua-0:'+p)
+
+
+
