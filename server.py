@@ -155,7 +155,3 @@ class Server(threading.Thread):
                 # Add output channel for response
             #if s not in self.outputs:
                 #self.outputs.append(s)
-
-
-
- 

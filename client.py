@@ -110,7 +110,11 @@ class Client(threading.Thread):
             self.parent.writeOutput('Connecting to %s port %s' % server_address)
             
             s.connect(server_address)
-            #self.parent.network.new_connection(str(s.getsockname()), (str(s.getsockname()),str(server_address), 0.5) )
+            node1 = self.parent.node
+            node2 = self.addrs[i]+'::'+str(self.ports[i])
+            edge = (node1, node2, 0.5)
+
+            self.parent.network.new_connection(node1, edge)
         
         while self.isOn:
             r,w,x = select.select(self.socks, self.outputs, self.socks)
@@ -160,22 +164,3 @@ class Client(threading.Thread):
     def sendMsg(self, message):
         for s in self.socks:
             s.send(message)
-        
-        # for message in messages:
-
-                # Send messages on both sockets
-             #   for s in socks:
-               #     print >>sys.stderr, '%s: sending "%s"' % (s.getsockname(), message)
-               #     print "im sending", message
-                #    s.send(message)
-
-                # Read responses on both sockets
-            #    for s in socks:
-               #     data = s.recv(1024)
-             #       if data:
-                 #       print >>sys.stderr, '%s: received "%s"' % (s.getsockname(), data)
-                 #   else:
-                   #     print 'closing sasdf'
-                      #  s.close()
-
-

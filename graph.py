@@ -17,8 +17,6 @@ class NetGraph(Frame):
     def __init__(self, parent, nodes, edges):
         Frame.__init__(self, parent, relief=RAISED, borderwidth=1)
         self.parent = parent
-        self.exNodes = {'a': [],'b': [],'c': [],'d': [],'e': [],'f': [], 'g': [], 'h': [], 'i': [], 'j': [], 'k': [], 'l': [], 'm': [], 'n': [], 'o': [], 'p': [], 'q': []}
-        self.exEdges = [('a','b',0.4), ('b','e',0.4), ('e','d',0.7), ('a','c',0.2), ('c','d',0.4), ('a','d',0.2),('a','k',0.3), ('b','g',0.4), ('e','p',0.7), ('k','i',0.2), ('j','m',0.4), ('l','f',0.2),('o','f',0.4), ('n','b',0.4), ('m','q',0.7), ('h','c',0.2), ('d','l',0.4), ('n','l',0.9)]
         self.nodes = nodes
         self.edges = edges
         self.realNodes = nodes
@@ -55,7 +53,7 @@ class NetGraph(Frame):
         self.graphFrame.pack()
         self.pack()
         self.construct(2)
-        
+     
     def construct(self, flag):
         #self.exButton.destroy()
         if flag == 1:
@@ -72,13 +70,13 @@ class NetGraph(Frame):
             self.G.add_node(node,visited=0, distanceto=maxint, adjlist=self.nodes[node])
     
     def new_connection(self, node, edge):
-        self.realNodes[node] = []
+        if node not in self.readNodes:
+            self.realNodes[node] = []
         self.realEdges.append(edge)
         self.construct(2)
-        self.drawGraph(0)
         
     def drawGraph(self, flag):
-        f = Figure(figsize=(5.5,6), dpi=100)
+        f = Figure(figsize=(6,5.5), dpi=100)
 
         a = f.add_subplot(111)       
 
