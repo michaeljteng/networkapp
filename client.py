@@ -32,12 +32,11 @@ class udpClient(threading.Thread):
             try:
                 
                 data, addr = serv.recvfrom(1024) #wait for a packet
-
+                serv.close()
                 # success!
                 if data.startswith('legbat'):
                     ap = data[len('legbat'):].split("::")
                     success = 1
-                    serv.close()
                     self.isOn = 0
 
             # if socket times out, we failed to hear the broadcast

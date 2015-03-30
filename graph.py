@@ -154,7 +154,8 @@ class NetGraph(Frame):
         return mstEdges
 
     # helper function for computeMST, identifies if an edge is in the same forest or not
-    # this is O(N) where N is the number of nodes
+    # this is O(N) where N is the number of nodes, could be improved to log(N) using 
+    # tree structures as the 'trees' instead of lists
     def findInForest(self, item, lst):
         try:
             for s in lst:
@@ -164,7 +165,7 @@ class NetGraph(Frame):
             raise
 #-----------------------------------------------------------------------------------#
 # Shortest path algorithm using djikstra's algorithm along with a suspect           #
-# decrease_key implementation                                                       #
+# decrease_key implementation: Runtime is O(NlogN)                                  #
 #-----------------------------------------------------------------------------------#
 
     def djikstra(self, start, end, window):
@@ -193,10 +194,16 @@ class NetGraph(Frame):
                     dist[node] = (maxint, 0, node)
                     minheap.append((maxint, 0, node))
                     prev[node] = 'undefined'
+
+            # heapify runs in linear time, inplace
+            # usually it would be nlogn, but this sifts the nodes down (towards leafs)
+            # the lower in levels you get, the less work you have to do
+            # i.e. the leafs on the bottom stay, so it will converge to O(N)
             heapify(minheap)
             
             # always visit the easiest possible, until heap is empty
             while minheap:
+                # O(N) runtime
                 (distance, visited, node) = heappop(minheap)
                 dist[node] = (distance, 1, node)
                 for (neighbor, distance_to) in self.nodes[node]:
@@ -208,6 +215,7 @@ class NetGraph(Frame):
                             dist[neighbor] = (alt, 0, neighbor)
                             # there is a way to reach the next node that is easier
                             prev[neighbor] = node
+                            #O(logN) -> gives overall NlogN
                             heappush(minheap, dist[neighbor])
             
             # path is found, compute it and return

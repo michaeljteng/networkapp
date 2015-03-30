@@ -113,7 +113,6 @@ class NetAppGUI(Frame):
         else:
             self.writeOutput("No existing instance found!") 
             self.writeOutput("Starting broadcast for this instance...")
-            self.findInstance = None
             self.broadcast = server.udpServer(port, self)
             self.broadcast.start()
     
@@ -154,6 +153,8 @@ class NetAppGUI(Frame):
             serv = client.Client(self, pings, port_lst, edge_lst)
             serv.start()
             self.client = serv
+            self.broadcast = server.udpServer(self.port, self)
+            self.broadcast.start()
 
     # safe exit, hopefully
     def exitApp(self):
