@@ -19,8 +19,6 @@ class NetGraph(Frame):
         self.parent = parent
         self.nodes = nodes
         self.edges = edges
-        self.realNodes = nodes
-        self.realEdges = edges
         self.G = nx.Graph()
         # set up the matplotlib figure
         self.path = []
@@ -35,13 +33,11 @@ class NetGraph(Frame):
         label.pack()
         
         buttonsFrame = Frame(self)
-        #self.exButton = Button(buttonsFrame, text="Example Graph", command=lambda: self.construct(1))
         mstButton = Button(buttonsFrame, text="MST", command=lambda: self.drawGraph(1))
         spButton = Button(buttonsFrame, text="Shortest Path", command=lambda: self.pathPrompt(self.parent))
         findButton = Button(buttonsFrame, text="Find User", command=lambda: self.findUser(self.parent))
         ogButton = Button(buttonsFrame, text="Original Graph", command=lambda: self.drawGraph(0))
         
-        #self.exButton.grid(row=0, column=0) 
         mstButton.grid(row=0, column=1)
         spButton.grid(row=0, column=2)
         findButton.grid(row=0, column=3)
@@ -49,38 +45,51 @@ class NetGraph(Frame):
         buttonsFrame.pack()
 
         # add nodes with visited property to 0 for Djikstra's and DFS
+        
+        for (x,y,w) in self.edges:
+            self.G.add_edge(x,y)
+
+         #   self.nodes[x].append((y,w))
+          #  self.nodes[y].append((x,w))
+        
+        for node in self.nodes:
+            self.G.add_node(node)
 
         self.graphFrame.pack()
         self.pack()
-        self.construct(2)
-     
-    def construct(self, flag):
-        #self.exButton.destroy()
-        if flag == 1:
-            self.edges = self.exEdges
-            self.nodes = self.exNodes
-        elif flag == 2:
-            self.edges = self.realEdges
-            self.nodes = self.realNodes
-        for (x,y,w) in self.edges:
-            self.G.add_edge(x,y,weight=w)
-            self.nodes[x].append((y,w))
-            self.nodes[y].append((x,w))
-        for node in self.nodes:
-            self.G.add_node(node,visited=0, distanceto=maxint, adjlist=self.nodes[node])
-    
-    def new_connection(self, node, edge):
-        if node not in self.readNodes:
-            self.realNodes[node] = []
-        self.realEdges.append(edge)
-        self.construct(2)
+
+    def new_connection(self, edge):
+        node1 = edge[0]
+        node2 = edge[1]
+        weight = edge[2]
+        print self.nodes
+        print self.edges
+        print self.G.nodes()
+        print self.G.edges()
+        if node1 not in self.nodes:
+            self.nodes[node1] = []
+            print 1
+        if node2 not in self.nodes:
+            self.nodes[node2] = []
+            print 2
+        if node1 not in self.G.nodes():
+            self.G.add_node(node1)
+            print 3
+        if node2 not in self.G.nodes():
+            self.G.add_node(node2)
+            print 4
+        if (node1, node2) not in self.G.edges():
+            self.G.add_edge(node1, node2)
+            
+        self.edges.append(edge)
+        self.nodes[node1].append((node2, weight))
+        self.nodes[node2].append((node1, weight))
         
     def drawGraph(self, flag):
         f = Figure(figsize=(6,5.5), dpi=100)
 
         a = f.add_subplot(111)       
 
-        pos=nx.spring_layout(self.G)
         
         self.graphFrame.destroy()
         self.graphFrame = Frame(self)
@@ -89,6 +98,7 @@ class NetGraph(Frame):
         canvas = FigureCanvasTkAgg(f, self.graphFrame)
         
         # nodes
+        pos=nx.spring_layout(self.G)
         nx.draw_networkx_nodes(self.G,pos,node_size=300, ax=a)
 
         # edges
@@ -100,7 +110,6 @@ class NetGraph(Frame):
         elif flag == 3:
             if self.found:
                 nx.draw_networkx_nodes(self.G, pos, nodelist=self.found, node_color='y', node_size=400, ax=a)
-        nx.draw(self.G, with_labels=False, ax=a)
         nx.draw_networkx_edges(self.G,pos, width=1,ax=a)
 
         # labels
@@ -114,7 +123,8 @@ class NetGraph(Frame):
         canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=True)
 
     def computeMST(self):
-        kruskalEdges = sorted(self.G.edges(data=True), key=lambda (u,v,d): d['weight'])
+        #kruskalEdges = sorted(self.G.edges(data=True), key=lambda (u,v,d): d['weight'])
+        kruskalEdges = sorted(self.edges, key=lambda (u,v,d): d)
         mstEdges = []
 
         kruskalForest = [set([node]) for node in self.nodes]
@@ -132,7 +142,6 @@ class NetGraph(Frame):
                 kruskalForest.remove(ta)
                 kruskalForest.append(tc)
             print kruskalForest
-        print self.G.nodes(data=True)
         return mstEdges
 
     def findInForest(self, item, lst):
@@ -161,7 +170,7 @@ class NetGraph(Frame):
             dist = {}
             prev = {}
             # initialize the shits
-            for (node, d) in self.G.nodes(data=True):
+            for node in self.nodes:
                 if node == start:
                     dist[node] = (0, 1, node)
                     minheap.append((0, 1, node))
@@ -231,6 +240,6 @@ class NetGraph(Frame):
         port2 = Entry(top)
         port2.grid(row=1, column=1)
         port2.focus_set()
-        go = Button(top, text="Launch", command=lambda: self.djikstra(port1.get(), port2.get(), top))
+        go = Button(top, text="Launch", command=lambda: self.new_connection(port1.get(), port2.get(), top))
         go.grid(row=2, column=1)
         

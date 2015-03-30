@@ -132,7 +132,7 @@ class NetAppGUI(Frame):
         if self.dc:
             self.dc.sock.send('retrievelegbat')
         else:
-            self.network = graph.NetGraph(self,{self.node: []}, [(self.node, self.node, 0)] )
+            self.network = graph.NetGraph(self,{self.node: []}, [] )
         self.writeOutput("Thanks for your patience - Your ChatApp is read to use!")
         self.writeOutput("...Remember to disconnect properly!")
 
@@ -239,12 +239,14 @@ class NetAppGUI(Frame):
         # yes, this is really all that is happening does....
         clearField
         self.writeOutput("<you> : " + text)
+        if text == 'showmygraph':
+            print self.network.nodes
+            print self.network.edges
         if self.client:
             self.client.sendMsg(text)
         if self.server:
             print "why so serious"
             self.server.send_through_server(text)
-
 
     def writeOutput(self, text):
         self.chatText.config(state=NORMAL)

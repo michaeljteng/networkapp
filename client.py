@@ -34,7 +34,7 @@ class udpClient(threading.Thread):
                     
                     data, addr = serv.recvfrom(1024) #wait for a packet
                     if data.startswith('legbat'):
-                        print "got service announcement from", data[len('legbat'):]
+                        #print "got service announcement from", data[len('legbat'):]
                         ap = data[len('legbat'):].split("::")
                         success = 1
                         serv.close()
@@ -114,7 +114,7 @@ class Client(threading.Thread):
             node2 = self.addrs[i]+'::'+str(self.ports[i])
             edge = (node1, node2, 0.5)
 
-            self.parent.network.new_connection(node1, edge)
+            self.parent.network.new_connection(edge)
         
         while self.isOn:
             r,w,x = select.select(self.socks, self.outputs, self.socks)

@@ -29,7 +29,7 @@ class udpServer(threading.Thread):
         while self.isOn:
             data = "legbat"+my_ip+"::"+self.port
             serv.sendto(data, ('<broadcast>', 50000))
-            print "sent service announcement to ", data 
+            #print "sent service announcement to ", data 
             sleep(2)
         serv.close()
 
