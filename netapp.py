@@ -5,6 +5,8 @@ import client
 import server
 import graph
 import pickle
+import atexit
+import os
 
 if not sys.hexversion > 0x03000000:
     from Tkinter import *
@@ -38,7 +40,7 @@ class NetAppGUI(Frame):
 
         # buttons for remote client connections
         buttonsFrame = Frame(self)
-        exitButton = Button(buttonsFrame, text="Disconnect & Exit", command=lambda: self.nothing())
+        exitButton = Button(buttonsFrame, text="Disconnect & Exit", command=lambda: self.exitApp())
         remoteHostButton = Button(buttonsFrame, text="Connect Remotely", command=lambda: self.nothing())
         serverb = Button(buttonsFrame, text="server", command=lambda: self.serverPrompt(self.parent))
         cb = Button(buttonsFrame, text="client", command=lambda:self.connect())
@@ -83,6 +85,19 @@ class NetAppGUI(Frame):
 #        self.ping('192.168.1.8')
               #c = client.Client('',10000)
         #c.start()
+    
+    def exitApp(self):
+        self.broadcast.isOn = 0
+        self.server.isOn = 0
+        del self.chatText
+        del self.findInstance
+        del self.broadcast
+        del self.server
+        del self.client
+        del self.network
+        sys.exit(1)
+        os._exit(1)
+        self.parent.destroy()
 
     def declarePortNum(self):
         self.writeOutput("ChatApp is waiting on port: " + str(self.port)) 
@@ -234,6 +249,9 @@ def main():
     root.geometry("1200x700+300+300")
     app = NetAppGUI(root)
     root.mainloop()
+    def test():
+        print "successful exit"
+    atexit.register(test)
 
 if __name__ == '__main__':
     main()

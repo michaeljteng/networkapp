@@ -13,9 +13,12 @@ import graph
 class udpClient(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
+        self.daemon = True
         self.search = ('','',0)
+        self.isOn = 0
 
     def run(self):
+        self.isOn = 1
         serv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #create UDP socket
         # use all network interfaces, broadcast port always 
         # hardcoded to 50000 to avoid confusion
@@ -42,10 +45,12 @@ class udpClient(threading.Thread):
 
         # record results
         self.search = (ap[0], ap[1], success)
+        
 
 class dClient(threading.Thread):
     def __init__(self, parent, addr, port):
         threading.Thread.__init__(self)
+        self.daemon = True
         self.parent = parent
         self.addr = addr 
         self.port = port
@@ -83,44 +88,74 @@ class dClient(threading.Thread):
 class Client(threading.Thread):
     def __init__(self, parent, addr_lst, port_lst):
         threading.Thread.__init__(self)
+        self.daemon = True
+        self.isOn = 0
         self.parent = parent # this is the tkinter widget
         self.addrs = addr_lst
         self.ports = port_lst
         self.socks = []
+        self.message_queues = {}
+        self.outputs = []
     
     def run(self):
-        print len(self.addrs), "LENGTH OF ADDR LST:"
+        self.isOn = 1
         for i in xrange(len(self.addrs)):
             server_address = (self.addrs[i], self.ports[i])
             # Create a TCP/IP socket
             
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socks.append(s)
-
+            self.message_queues[s] = Queue.Queue()
             # Connect the socket to the port where the server is listening
             self.parent.writeOutput('Connecting to %s port %s' % server_address)
             
             s.connect(server_address)
             #self.parent.network.new_connection(str(s.getsockname()), (str(s.getsockname()),str(server_address), 0.5) )
-
-        while 1:
-            r,w,x = select.select(self.socks, self.socks, [])
+        
+        while self.isOn:
+            r,w,x = select.select(self.socks, self.outputs, self.socks)
+            
             for s in r:
+                data = s.recv(1024)
+                if data.startswith('legbat'):
+                    jar = data[len('legbat'):]
+                    pickles = jar.split('legbat')
+                    p1 = pickle.loads(pickles[0])
+                    p2 = pickle.loads(pickles[1])
+                    print p1, p2
+                    self.parent.network = graph.NetGraph(self.parent, p1, p2)
+                    break
+                if data:
+                    self.parent.writeOutput("<"+str(s.getpeername())+"> : "+data)
+                    self.message_queues[s].put(data)
+                    if s not in self.outputs:
+                        self.outputs.append(s)
+                else:
+                    self.parent.writeOutput('closing')
+                    if s in self.outputs:
+                        self.outputs.remove(s)
+                    self.socks.remove(s)
+                    s.close()
+                    del self.message_queues[s]
+            for s in w:
                 try:
-                    data = s.recv(1024)
-                    print data
-                    if data.startswith('legbat'):
-                        jar = data[len('legbat'):]
-                        pickles = jar.split('legbat')
-                        p1 = pickle.loads(pickles[0])
-                        p2 = pickle.loads(pickles[1])
-                        print p1, p2
-                        self.parent.network = graph.NetGraph(self.parent, p1, p2)
+                    next_msg = self.message_queues[s].get_nowait()
+                except Queue.Empty:
+                    self.outputs.remove(s)
+                else:
+                    s.send(next_msg+'echo')
+                    print "holding"
 
-                    else:
-                        self.parent.writeOutput("<"+str(s.getpeername())+"> : "+data)
-                except:
-                    print "u fucking scrub"
+            for s in x:
+                self.socks.remove(s)
+                if s in self.outputs:
+                    self.outputs.remove(s)
+                s.close()
+                del self.message_queues[s]
+
+        for s in self.socks:
+            s.close()
+        print "EXITED" 
         
     def sendMsg(self, message):
         for s in self.socks:
